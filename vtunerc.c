@@ -28,6 +28,56 @@ int dbg_level = 2;
 #define DEBUGC(msg, ...)
 #endif
 
+typedef enum tsdata_worker_status {
+  DST_UNKNOWN,
+  DST_RUNNING,
+  DST_EXITING
+} tsdata_worker_status_t;
+
+typedef struct tsdata_worker_data {
+  int in;
+  int out;
+  tsdata_worker_status_t status;  
+} tsdata_worker_data_t;
+
+void *tsdata_worker(void *d) {
+  tsdata_worker_data_t* data = (tsdata_worker_data_t*)d;
+
+  data->status = DST_RUNNING;
+
+  unsigned char buf[4096*188];
+  int bufptr = 0, bufptr_write = 0;
+
+  while(data->status == DST_RUNNING) {
+    struct pollfd pfd[] = { { data->in, 0, 0 }, { data->out, 0, 0 } };
+    int can_read = (sizeof(buf) - bufptr) > 1500;
+    int can_write = ( bufptr - 65536 > bufptr_write);
+    if (can_read) pfd[0].events |= POLLIN;
+    if (can_write) pfd[1].events |= POLLOUT;
+    poll(pfd, 2, 5);  // don't poll forever to catch data->status != DST_RUNNING
+
+    if (pfd[0].revents & POLLIN) {
+      int r = read(data->in, buf + bufptr, sizeof(buf) - bufptr);
+      if (r <= 0) {
+        WARN("udp read: %m\n");
+      } else {
+        bufptr += r;
+      }
+    }
+
+    if (pfd[1].revents & POLLOUT) {
+      int w = bufptr - bufptr_write;
+      if (write(data->out, buf + bufptr_write, w) != w) {
+        ERROR("write failed - %m");
+        exit(1);
+      }
+      bufptr_write += w;
+      if (bufptr_write == bufptr) bufptr_write = bufptr = 0;
+    }
+
+  }
+  data->status = DST_EXITING;
+}
 
 int main(int argc, char **argv)
 {
@@ -126,7 +176,7 @@ int main(int argc, char **argv)
         write(vfd, &msg, sizeof(msg));
         read(vfd, &msg, sizeof(msg));
 
-	unsigned char buf[1024*188];
+	unsigned char buf[4096*188];
 	int bufptr = 0, bufptr_write = 0;
 
         #ifdef DEBUG_MAIN
@@ -139,63 +189,49 @@ int main(int argc, char **argv)
           close(fe);
 	} 
         #endif
+	
+        tsdata_worker_data_t dwd;
+        dwd.in = udpsock;
+        dwd.out = vtuner_control;
+        dwd.status = DST_UNKNOWN;
+        pthread_t dwt;
+        pthread_create( &dwt, NULL, tsdata_worker, &dwd );
+	
+	while (1) {
+          struct pollfd pfd[] = { { vtuner_control, POLLPRI, 0 }, {vfd, POLLIN, 0} };
+          poll(pfd, 2, -1);
+          if(pfd[0].revents & POLLPRI) {
+	    INFO("vtuner message!\n");
+            if (ioctl(vtuner_control, VTUNER_GET_MESSAGE, &msg.u.vtuner)) {
+              ERROR("VTUNER_GET_MESSAGE- %m\n");
+              exit(1);
+            }
 
-	while (1)
-	{
-		int can_read = (sizeof(buf) - bufptr) > 1500;
-		int can_write = (bufptr > bufptr_write);
-		struct pollfd pfd[] = { { udpsock, 0, 0 }, { vtuner_control, POLLPRI, 0 } };
-		if (can_read)
-			pfd[0].events |= POLLIN;
-		if (can_write)
-			pfd[1].events |= POLLOUT;
-		poll(pfd, 2, -1);
-		if (pfd[1].revents & POLLPRI)
-		{
-			INFO("vtuner message!\n");
-			if (ioctl(vtuner_control, VTUNER_GET_MESSAGE, &msg.u.vtuner))
-				perror("VTUNER_GET_MESSAGE");
+            // we need to save to msg_type here as hton works in place
+            // so it's not save to access msg_type afterwards
+            int msg_type = msg.msg_type = msg.u.vtuner.type;
+            hton_vtuner_net_message( &msg, type );
+            write(vfd, &msg, sizeof(msg));
 
-                        // we need to save to msg_type here as hton works in place
-                        // so it's not save to access msg_type afterwards
-			int msg_type = msg.msg_type = msg.u.vtuner.type;
-			hton_vtuner_net_message( &msg, type );
-			write(vfd, &msg, sizeof(msg));
-
-			if (msg_type != MSG_PIDLIST)
-			{
-				read(vfd, &msg, sizeof(msg));
-				ntoh_vtuner_net_message( &msg, type );
-
-				if (ioctl(vtuner_control, VTUNER_SET_RESPONSE, &msg.u.vtuner))
-				{
-					perror("VTUNER_SET_RESPONSE");
-					INFO("msg: %d\n", msg.u.vtuner.type);
-				}
-			}
-		}
-		
-		if (pfd[0].revents & POLLIN)
-		{
-			int r = read(udpsock, buf + bufptr, sizeof(buf) - bufptr);
-			if (r <= 0) {
-				WARN("udp read: %m\n");
-			} else
-				bufptr += r;
-		}
-		if (pfd[1].revents & POLLOUT)
-		{
-			int w = bufptr - bufptr_write;
-			if (write(vtuner_control, buf + bufptr_write, w) != w)
-			{
-				perror("write");
-				return 1;
-			}
-			bufptr_write += w;
-			if (bufptr_write == bufptr)
-				bufptr_write = bufptr = 0;
-//			DEBUG("wrote %d bytes data\n",w);
-		}
-	}
+            if (msg_type != MSG_PIDLIST) {
+              read(vfd, &msg, sizeof(msg));
+              ntoh_vtuner_net_message( &msg, type );
+              if (ioctl(vtuner_control, VTUNER_SET_RESPONSE, &msg.u.vtuner)) {
+                ERROR("VTUNER_SET_RESPONSE - %m\n");
+                exit(1);
+              }
+            }
+            INFO("msg: %d completed\n", msg_type);
+          }
+          
+          if(pfd[1].revents & POLLIN) {
+            int rlen = read(vfd, &msg, sizeof(msg));
+            if(rlen == 0) {
+              ERROR("Server disconncted - %m\n");
+              exit(1);
+            }
+            //FIXME: handle incomming updates from server (status, BER, SNR, etc)
+          }
+        }
 	return 0;
 }
