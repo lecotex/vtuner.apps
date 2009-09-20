@@ -58,16 +58,16 @@ typedef struct vtuner_message {
 			__u32	frequency;
 			__u8	inversion;
 			union {
-				union {
+				struct {
 					__u32	symbol_rate;
 					__u8	fec_inner;
 				} qpsk;
-				union {
+				struct {
 					__u32   symbol_rate;
 					__u8    fec_inner;
 					__u8	modulation;
 				} qam;
-				union {
+				struct {
 					__u8	bandwidth;
 					__u8	code_rate_HP;
 					__u8	code_rate_LP;
@@ -76,7 +76,7 @@ typedef struct vtuner_message {
 					__u8	guard_interval;
 					__u8	hierarchy_information;
 				} ofdm;
-				union {
+				struct {
 					__u8	modulation;
 				} vsb;
 			} u;
