@@ -1,7 +1,7 @@
 #!/bin/bash
 
 #DBGFLAGS="-DDEBUG_NET -DDEBUG_HW -DDEBUG_MAIN -DDBGTS=\"/dev/null\""
-DBGFLAGS="-DDEBUG_HW -DDEBUG_MAIN"
+DBGFLAGS="-DDEBUG_HW -DDEBUG_MAIN "
 
 CC=gcc
 ARCH=i686
@@ -10,6 +10,7 @@ LDFLAGS=-lpthread
 $CC $CFLAGS -c -o vtuner-network.$ARCH.o vtuner-network.c
 $CC $CFLAGS -c -o vtuner-dvb-3.$ARCH.o vtuner-dvb-3.c
 $CC $CFLAGS $LDFLAGS -o vtunerd.$ARCH vtuner-network.$ARCH.o vtuner-dvb-3.$ARCH.o vtunerd.c
+# $CC $CFLAGS $LDFLAGS -o vtunerc-test.$ARCH vtuner-network.$ARCH.o vtuner-dvb-3.$ARCH.o vtunerc-test.c
 
 CC=/stuff/dm800/build/tmp/cross/bin/mipsel-linux-gcc
 ARCH=mipsel

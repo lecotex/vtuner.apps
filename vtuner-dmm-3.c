@@ -75,10 +75,14 @@ int hw_init(vtuner_hw_t* hw, int adapter, int frontend, int demux) {
   flt.output = DMX_OUT_TAP;
   flt.pes_type = DMX_TAP_TS;
   flt.flags = 0;
-  if(ioctl(hw->demux_fd, DMX_SET_PES_FILTER, &flt) !=0) {
-    ERROR("DMX_SET_PES_FILTER failed for %s\n", devstr);
+  if(ioctl(hw->demux_fd, DMX_SET_PES_FILTER, &flt) != 0) {
+    ERROR("DMX_SET_PES_FILTER failed for %s - %m\n", devstr);
     goto cleanup_demux;
   }
+
+  if(ioctl(hw->demux_fd, DMX_START, 0) != 0) {
+    ERROR("DMX_START failed for %s - %m\n", devstr);
+  } 
 
   return 0;
 
@@ -144,7 +148,9 @@ int hw_pidlist(vtuner_hw_t* hw, __u16* pidlist) {
         if(hw->pids[i] == pidlist[j])
           break;
       if(j == 30) {
-        ioctl(hw->demux_fd, DMX_REMOVE_PID, hw->pids[i]);
+        if(ioctl(hw->demux_fd, DMX_REMOVE_PID, hw->pids[i]) != 0) {
+          WARN("DMX_REMOVE_PID %d failed - %m\n", hw->pids[i]);
+        }
         DEBUGHW("remove pid %d\n", hw->pids[i]);
       }
     }
@@ -155,7 +161,9 @@ int hw_pidlist(vtuner_hw_t* hw, __u16* pidlist) {
         if(pidlist[i] == hw->pids[j])
           break;
       if(j == 30) {
-        ioctl(hw->demux_fd, DMX_ADD_PID, pidlist[i]);
+        if(ioctl(hw->demux_fd, DMX_ADD_PID, pidlist[i]) != 0) {
+          WARN("DMX_ADD_PID %d failed - %m\n", pidlist[i]);
+        }
         DEBUGHW("add pid %d\n",  pidlist[i]);
       }
     }
