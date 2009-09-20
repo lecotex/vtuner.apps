@@ -8,6 +8,7 @@
 #include <netinet/in.h>
 #include <netdb.h>
 #include <string.h>
+#include <syslog.h>
 
 #include "vtuner-network.h"
 
@@ -18,15 +19,12 @@
 #define VTUNER_SET_TYPE     4
 #define VTUNER_SET_HAS_OUTPUTS 5
 #define VTUNER_SET_FE_INFO 6
-int dbg_level = 2;
 
-#ifdef DEBUG_MAIN
-#define DEBUG(msg, ...) fprintf(stderr,"[%d %s:%u] debug: " msg, getpid(), __FILE__, __LINE__, ## __VA_ARGS__)
-#define DEBUGC(msg, ...) fprintf(stderr,msg, ## __VA_ARGS__)
-#else
-#define DEBUG(msg, ...)
-#define DEBUGC(msg, ...)
-#endif
+int dbg_level =  0x00ff;
+int use_syslog = 0;
+
+#define DEBUGMAIN(msg, ...)  write_message(0x0010, "[%d %s:%u] debug: " msg, getpid(), __FILE__, __LINE__, ## __VA_ARGS__)
+#define DEBUGMAINC(msg, ...) write_message(0x0010, msg, ## __VA_ARGS__)
 
 typedef enum tsdata_worker_status {
   DST_UNKNOWN,
@@ -206,6 +204,8 @@ struct dvb_frontend_info fe_info_dvbt = {
 
 int main(int argc, char **argv) {
 
+  openlog("vtunerc", LOG_PERROR, LOG_USER);
+
   int type;
   char ctype[7];
   struct dvb_frontend_info* vtuner_info;
@@ -233,11 +233,11 @@ int main(int argc, char **argv) {
   } else if(strstr(argv[0],"vtunerct") != NULL ) {
     type = VT_T;
     strncpy(ctype,"DVB-T",sizeof(ctype));
-    vtuner_info = &fe_info_dvbc;
+    vtuner_info = &fe_info_dvbt;
   } else if(strstr(argv[0],"vtunercc") != NULL ) {
     type = VT_C;
     strncpy(ctype,"DVB-C",sizeof(ctype));
-    vtuner_info = &fe_info_dvbt;
+    vtuner_info = &fe_info_dvbc;
   } else {
     ERROR("unknown filename\n");
     exit(1);
@@ -272,7 +272,7 @@ int main(int argc, char **argv) {
 
     if( vts == VTS_DISCONNECTED ) {
       if( dsd.status == DWS_IDLE ) {
-        DEBUG("Start discover worker for device type %x\n", type);
+        DEBUGMAIN("Start discover worker for device type %x\n", type);
         dsd.types = type;
         dsd.status = DWS_RUNNING;
         pthread_create( &dst, NULL, discover_worker, &dsd);
@@ -396,7 +396,7 @@ int main(int argc, char **argv) {
           case MSG_READ_SNR:             msg.u.vtuner.body.snr    = values.snr; break; 
           case MSG_READ_UCBLOCKS:        msg.u.vtuner.body.ucb    = values.ucb; break;
         }
-        DEBUG("cached values are up to date\n");
+        DEBUGMAIN("cached values are up to date\n");
       }
 
       if (msg_type != MSG_PIDLIST) {

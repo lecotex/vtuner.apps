@@ -10,6 +10,8 @@
   #include <linux/dvb/dmx.h>
 #endif
 
+#include "vtuner-utils.h"
+
 typedef enum vtuner_type {
   VT_S = 0x01,
   VT_C = 0x02,
@@ -39,19 +41,8 @@ typedef enum vtuner_type {
 #define MSG_DISCOVER		 1025
 #define MSG_UPDATE       	 1026
 
-extern int dbg_level;
-#define ERROR(msg, ...) if(dbg_level>=0) fprintf(stderr,"[%d %s:%u] error: " msg, getpid(), __FILE__, __LINE__, ## __VA_ARGS__)  
-#define  WARN(msg, ...) if(dbg_level>=1) fprintf(stderr,"[%d %s:%u] warn: " msg, getpid(), __FILE__, __LINE__, ## __VA_ARGS__) 
-#define  INFO(msg, ...) if(dbg_level>=2) fprintf(stderr,"[%d %s:%u] info: " msg, getpid(), __FILE__, __LINE__, ## __VA_ARGS__)
-
-#ifdef DEBUG_NET
-#define DEBUGNET(msg, ...) fprintf(stderr,"[%d %s:%u] debug: " msg, getpid(), __FILE__, __LINE__, ## __VA_ARGS__)
-#define DEBUGNETC(msg, ...) fprintf(stderr,msg, ## __VA_ARGS__)
-#else
-#define DEBUGNET(msg, ...)
-#define DEBUGNETC(msg, ...)
-#endif
-
+#define DEBUGNET(msg, ...)  write_message(0x0100, "[%d %s:%u] debug: " msg, getpid(), __FILE__, __LINE__, ## __VA_ARGS__)
+#define DEBUGNETC(msg, ...) write_message(0x0100, msg, ## __VA_ARGS__)
 
 typedef struct vtuner_message {
         __s32 type;
