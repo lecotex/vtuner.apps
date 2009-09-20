@@ -11,9 +11,10 @@
 #endif
 
 typedef enum vtuner_type {
-  VT_S,
-  VT_C,
-  VT_T
+  VT_S = 0x01,
+  VT_C = 0x02,
+  VT_T = 0x04,
+  VT_S2 = 0x08
 } vtuner_type_t;
 
 #include <sys/types.h>
@@ -36,6 +37,7 @@ typedef enum vtuner_type {
 
 #define MSG_NULL		 1024
 #define MSG_DISCOVER		 1025
+#define MSG_UPDATE       	 1026
 
 extern int dbg_level;
 #define ERROR(msg, ...) if(dbg_level>=0) fprintf(stderr,"[%d %s:%u] error: " msg, getpid(), __FILE__, __LINE__, ## __VA_ARGS__)  
@@ -110,7 +112,16 @@ typedef struct vtuner_frontend_info {
 typedef struct vtuner_discover {
   vtuner_frontend_info_t fe_info;   
   __u16 port;
+  __u16 tsdata_port;
+  char tuner_group[80];
 } vtuner_discover_t;
+
+typedef struct vtuner_update {
+  __u32 status; 
+  __u32 ber;
+  __u32 ucb;
+  __u16 ss, snr;
+} vtuner_update_t;
 
 typedef struct vtuner_net_message {
   __s32 msg_type;
@@ -118,6 +129,7 @@ typedef struct vtuner_net_message {
   union {
     vtuner_message_t vtuner;
     vtuner_discover_t discover;
+    vtuner_update_t update; 
   } u;
 } vtuner_net_message_t;
 

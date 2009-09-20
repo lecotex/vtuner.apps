@@ -21,9 +21,10 @@
 #if HAVE_DVB_API_VERSION < 3
   void get_dvb_frontend_info( FrontendInfo* fe_info, vtuner_net_message_t* netmsg) {
     switch(netmsg->u.discover.fe_info.type) {
-      case VT_S: fe_info->type = FE_QPSK; break;
-      case VT_C: fe_info->type = FE_QAM; break;
-      case VT_T: fe_info->type = FE_OFDM; break;
+      case VT_S  :
+      case VT_S2 : fe_info->type = FE_QPSK; break;
+      case VT_C  : fe_info->type = FE_QAM; break;
+      case VT_T  : fe_info->type = FE_OFDM; break;
     }
     fe_info->minFrequency = netmsg->u.discover.fe_info.frequency_min;
     fe_info->maxFrequency = netmsg->u.discover.fe_info.frequency_max;
@@ -57,7 +58,8 @@
     hfe->Frequency			= netmsg->body.fe_params.frequency;
     hfe->Inversion			= netmsg->body.fe_params.inversion;
     switch(type) {
-      case VT_S:
+      case VT_S :
+      case VT_S2:
         hfe->u.qpsk.SymbolRate		= netmsg->body.fe_params.u.qpsk.symbol_rate;
         switch(netmsg->body.fe_params.u.qpsk.fec_inner) {
           case 0: hfe->u.qpsk.FEC_inner   = FEC_NONE; break;
@@ -98,7 +100,8 @@
     netmsg->body.fe_params.frequency			= hfe->Frequency;
     netmsg->body.fe_params.inversion			= hfe->Inversion;
     switch(type) {
-      case VT_S:
+      case VT_S :
+      case VT_S2:
         netmsg->body.fe_params.u.qpsk.symbol_rate		= hfe->u.qpsk.SymbolRate;
         switch(hfe->u.qpsk.FEC_inner) {
           case FEC_NONE: netmsg->body.fe_params.u.qpsk.fec_inner = 0; break;
@@ -138,9 +141,10 @@
   void get_dvb_frontend_info( struct dvb_frontend_info* fe_info, vtuner_net_message_t* netmsg) {
     strncpy(fe_info->name, netmsg->u.discover.fe_info.name, sizeof(fe_info->name));
     switch(netmsg->u.discover.fe_info.type) {
-      case VT_S: fe_info->type = FE_QPSK; break;
-      case VT_C: fe_info->type = FE_QAM; break;
-      case VT_T: fe_info->type = FE_OFDM; break;
+      case VT_S  :
+      case VT_S2 : fe_info->type = FE_QPSK; break;
+      case VT_C  : fe_info->type = FE_QAM; break;
+      case VT_T  : fe_info->type = FE_OFDM; break;
     }
     fe_info->frequency_min = netmsg->u.discover.fe_info.frequency_min;
     fe_info->frequency_max = netmsg->u.discover.fe_info.frequency_max;
@@ -177,7 +181,8 @@
     hfe->frequency 		= netmsg->body.fe_params.frequency;
     hfe->inversion		= netmsg->body.fe_params.inversion;
     switch (type) {
-      case VT_S:
+      case VT_S :
+      case VT_S2:
         hfe->u.qpsk.symbol_rate	= netmsg->body.fe_params.u.qpsk.symbol_rate;
         hfe->u.qpsk.fec_inner	= netmsg->body.fe_params.u.qpsk.fec_inner;
         break;
@@ -201,7 +206,8 @@
     netmsg->body.fe_params.frequency		= hfe->frequency;
     netmsg->body.fe_params.inversion		= hfe->inversion;
     switch (type) {
-      case VT_S:
+      case VT_S :
+      case VT_S2:
         netmsg->body.fe_params.u.qpsk.symbol_rate = hfe->u.qpsk.symbol_rate;
         netmsg->body.fe_params.u.qpsk.fec_inner   = hfe->u.qpsk.fec_inner;
         break;
@@ -238,7 +244,8 @@ void hton_vtuner_net_message(vtuner_net_message_t* netmsg, vtuner_type_t type) {
       DEBUGNETC(" %d %d %d %d", netmsg->u.vtuner.body.fe_params.frequency, netmsg->u.vtuner.body.fe_params.inversion, netmsg->u.vtuner.body.fe_params.u.qpsk.symbol_rate, netmsg->u.vtuner.body.fe_params.u.qpsk.fec_inner);
       HTONLc(netmsg->u.vtuner.body.fe_params, frequency);
       switch (type) {
-        case VT_S:
+        case VT_S :
+        case VT_S2:
           DEBUGNETC(" VT_S");
           HTONLc( netmsg->u.vtuner.body.fe_params, u.qpsk.symbol_rate);
           HTONLc( netmsg->u.vtuner.body.fe_params, u.qpsk.fec_inner);
@@ -260,7 +267,7 @@ void hton_vtuner_net_message(vtuner_net_message_t* netmsg, vtuner_type_t type) {
           HTONLc( netmsg->u.vtuner.body.fe_params, u.ofdm.hierarchy_information);
 	  break;
 	default:
-          WARN("unkown frontend type %d (known types are %d,%d,%d)\n",type,VT_S,VT_C,VT_T);
+          WARN("unkown frontend type %d (known types are %d,%d,%d,%d)\n",type,VT_S,VT_C,VT_T,VT_S2);
       };
       break;
     case MSG_READ_STATUS:
@@ -293,6 +300,7 @@ void hton_vtuner_net_message(vtuner_net_message_t* netmsg, vtuner_type_t type) {
     case MSG_DISCOVER:
       DEBUGNETC(" %d %d %d %d", netmsg->u.discover.port, netmsg->u.discover.fe_info.type, netmsg->u.discover.fe_info.frequency_min, netmsg->u.discover.fe_info.frequency_max);
       HTONSc( netmsg->u.discover, port);
+      HTONSc( netmsg->u.discover, tsdata_port);
       HTONLc( netmsg->u.discover.fe_info, type);
       HTONLc( netmsg->u.discover.fe_info, frequency_min);
       HTONLc( netmsg->u.discover.fe_info, frequency_max);
@@ -331,7 +339,8 @@ void ntoh_vtuner_net_message(vtuner_net_message_t* netmsg, vtuner_type_t type) {
     case MSG_SET_FRONTEND: 
       NTOHLc( netmsg->u.vtuner.body.fe_params, frequency);
       switch (type) {
-        case VT_S:
+        case VT_S :
+        case VT_S2:
           DEBUGNETC(" VT_S");
           NTOHLc( netmsg->u.vtuner.body.fe_params, u.qpsk.symbol_rate);
           NTOHLc( netmsg->u.vtuner.body.fe_params, u.qpsk.fec_inner);
@@ -353,7 +362,7 @@ void ntoh_vtuner_net_message(vtuner_net_message_t* netmsg, vtuner_type_t type) {
           NTOHLc( netmsg->u.vtuner.body.fe_params, u.ofdm.hierarchy_information);
           break;
         default:
-          WARN("unkown frontend type %d (known types are %d,%d,%d)\n",type,VT_S,VT_C,VT_T);
+          WARN("unkown frontend type %d (known types are %d,%d,%d,%d)\n",type,VT_S,VT_C,VT_T,VT_S2);
       }
       DEBUGNETC(" %d %d %d %d", netmsg->u.vtuner.body.fe_params.frequency, netmsg->u.vtuner.body.fe_params.inversion, netmsg->u.vtuner.body.fe_params.u.qpsk.symbol_rate, netmsg->u.vtuner.body.fe_params.u.qpsk.fec_inner);
       break;
@@ -386,6 +395,7 @@ void ntoh_vtuner_net_message(vtuner_net_message_t* netmsg, vtuner_type_t type) {
       break;
     case MSG_DISCOVER:
       NTOHSc( netmsg->u.discover, port);
+      NTOHSc( netmsg->u.discover, tsdata_port);
       NTOHLc( netmsg->u.discover.fe_info, type);
       NTOHLc( netmsg->u.discover.fe_info, frequency_min);
       NTOHLc( netmsg->u.discover.fe_info, frequency_max);

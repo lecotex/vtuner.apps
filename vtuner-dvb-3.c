@@ -115,7 +115,7 @@ int hw_set_tone(vtuner_hw_t* hw, __u8 tone) {
 
 int hw_set_voltage(vtuner_hw_t* hw, __u8 voltage) {
   int ret=0;
-  if(hw->type == VT_S) { // Dream supports this on DVB-T, but not plain linux
+  if( hw->type == VT_S || hw->type == VT_S2 ) { // Dream supports this on DVB-T, but not plain linux
     ret = ioctl(hw->frontend_fd, FE_SET_VOLTAGE, voltage);
     if( ret != 0 ) WARN("FE_SET_VOLTAGE failed - %m\n");
   }
