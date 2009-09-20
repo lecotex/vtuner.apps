@@ -17,7 +17,7 @@
 #define VTUNER_SET_NAME     3
 #define VTUNER_SET_TYPE     4
 #define VTUNER_SET_HAS_OUTPUTS 5
-
+#define VTUNER_SET_FE_INFO 6
 int dbg_level = 2;
 
 #ifdef DEBUG_MAIN
@@ -70,7 +70,7 @@ int main(int argc, char **argv)
 	msg_so.sin_addr.s_addr = htonl(INADDR_BROADCAST);
 	msg_so.sin_port = htons(0x9989);
 	msg.msg_type = MSG_DISCOVER;
-	msg.u.discover.type = type;
+	msg.u.discover.fe_info.type = type;
 	msg.u.discover.port = 0;
 	int broadcast = -1;
 	setsockopt(udpsock, SOL_SOCKET, SO_BROADCAST, &broadcast, sizeof(broadcast));
@@ -96,11 +96,6 @@ int main(int argc, char **argv)
 	  ERROR("connect - %m\n");
         }
 
-        // send empty message to fully open connection
-	msg.msg_type = MSG_NULL;
-        write(vfd, &msg, sizeof(msg));
-        read(vfd, &msg, sizeof(msg));
-        	
 	int vtuner_control = open("/dev/misc/vtuner0", O_RDWR);
 	if (vtuner_control < 0)
 	{
@@ -118,7 +113,18 @@ int main(int argc, char **argv)
 	if (ioctl(vtuner_control, VTUNER_SET_HAS_OUTPUTS, "no"))
 		perror("VTUNER_SET_HAS_OUTPUTS");
 
-	struct dvb_frontend_parameters feparm;
+	struct dvb_frontend_info fe_info;
+        ntoh_vtuner_net_message(&msg, 0);
+	get_dvb_frontend_info( &fe_info, &msg);
+	DEBUG("SET_FE_INFO type: %d frq_min: %d frq_max: %d\n", msg.u.discover.fe_info.type, msg.u.discover.fe_info.frequency_min, msg.u.discover.fe_info.frequency_max);
+        if (ioctl(vtuner_control, VTUNER_SET_FE_INFO, &fe_info)) {
+		WARN("VTUNER_SET_FE_INFO failed - %m\n");
+	}       
+
+        // send empty message to fully open connection
+        msg.msg_type = MSG_NULL;
+        write(vfd, &msg, sizeof(msg));
+        read(vfd, &msg, sizeof(msg));
 
 	unsigned char buf[1024*188];
 	int bufptr = 0, bufptr_write = 0;
@@ -188,7 +194,7 @@ int main(int argc, char **argv)
 			bufptr_write += w;
 			if (bufptr_write == bufptr)
 				bufptr_write = bufptr = 0;
-			DEBUG("wrote %d bytes data\n",w);
+//			DEBUG("wrote %d bytes data\n",w);
 		}
 	}
 	return 0;

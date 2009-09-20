@@ -103,6 +103,42 @@
     }
   }
 #else
+  void get_dvb_frontend_info( struct dvb_frontend_info* fe_info, vtuner_net_message_t* netmsg) {
+    strncpy(fe_info->name, netmsg->u.discover.fe_info.name, sizeof(fe_info->name));
+    switch(netmsg->u.discover.fe_info.type) {
+      case VT_S: fe_info->type = FE_QPSK; break;
+      case VT_C: fe_info->type = FE_QAM; break;
+      case VT_T: fe_info->type = FE_OFDM; break;
+    }
+    fe_info->frequency_min = netmsg->u.discover.fe_info.frequency_min;
+    fe_info->frequency_max = netmsg->u.discover.fe_info.frequency_max;
+    fe_info->frequency_stepsize = netmsg->u.discover.fe_info.frequency_stepsize;
+    fe_info->frequency_tolerance = netmsg->u.discover.fe_info.frequency_tolerance;
+    fe_info->symbol_rate_min = netmsg->u.discover.fe_info.symbol_rate_min;
+    fe_info->symbol_rate_max = netmsg->u.discover.fe_info.symbol_rate_max;
+    fe_info->symbol_rate_tolerance = netmsg->u.discover.fe_info.symbol_rate_tolerance;
+    fe_info->notifier_delay = netmsg->u.discover.fe_info.notifier_delay;
+    fe_info->caps = netmsg->u.discover.fe_info.caps;
+  }
+
+  void set_dvb_frontend_info( vtuner_net_message_t* netmsg, struct dvb_frontend_info* fe_info) {
+    strncpy(netmsg->u.discover.fe_info.name, fe_info->name, sizeof(fe_info->name));
+    switch(fe_info->type) {
+      case FE_QPSK: netmsg->u.discover.fe_info.type = VT_S; break;
+      case FE_QAM:  netmsg->u.discover.fe_info.type = VT_C; break;
+      case FE_OFDM: netmsg->u.discover.fe_info.type = VT_T; break;
+    }
+    netmsg->u.discover.fe_info.frequency_min = fe_info->frequency_min;
+    netmsg->u.discover.fe_info.frequency_max = fe_info->frequency_max;
+    netmsg->u.discover.fe_info.frequency_stepsize = fe_info->frequency_stepsize;
+    netmsg->u.discover.fe_info.frequency_tolerance = fe_info->frequency_tolerance;
+    netmsg->u.discover.fe_info.symbol_rate_min = fe_info->symbol_rate_min;
+    netmsg->u.discover.fe_info.symbol_rate_max = fe_info->symbol_rate_max;
+    netmsg->u.discover.fe_info.symbol_rate_tolerance = fe_info->symbol_rate_tolerance;
+    netmsg->u.discover.fe_info.notifier_delay = fe_info->notifier_delay;
+    netmsg->u.discover.fe_info.caps = fe_info->caps;
+  }
+
   void get_dvb_frontend_parameters(struct dvb_frontend_parameters* hfe, vtuner_message_t* netmsg, vtuner_type_t type) {
     memset(hfe, 0, sizeof(hfe));
 
@@ -162,7 +198,7 @@ int ntoh_get_message_type( vtuner_net_message_t* netmsg ) {
 }
 
 void hton_vtuner_net_message(vtuner_net_message_t* netmsg, vtuner_type_t type) {
-  DEBUGNET("hton_vtuner_net_message: %d %d", netmsg->msg_type, netmsg->u.vtuner.type );
+  DEBUGNET(" %d %d", netmsg->msg_type, netmsg->u.vtuner.type );
 
   switch (netmsg->msg_type) {
     case MSG_GET_FRONTEND:
@@ -213,7 +249,16 @@ void hton_vtuner_net_message(vtuner_net_message_t* netmsg, vtuner_type_t type) {
       }
       break;
     case MSG_DISCOVER:
+      DEBUGNETC(" %d %d %d %d", netmsg->u.discover.port, netmsg->u.discover.fe_info.type, netmsg->u.discover.fe_info.frequency_min, netmsg->u.discover.fe_info.frequency_max);
       HTONSc( netmsg->u.discover, port);
+      HTONLc( netmsg->u.discover.fe_info, frequency_min);
+      HTONLc( netmsg->u.discover.fe_info, frequency_max);
+      HTONLc( netmsg->u.discover.fe_info, frequency_stepsize);
+      HTONLc( netmsg->u.discover.fe_info, frequency_tolerance);
+      HTONLc( netmsg->u.discover.fe_info, symbol_rate_min);
+      HTONLc( netmsg->u.discover.fe_info, symbol_rate_max);
+      HTONLc( netmsg->u.discover.fe_info, symbol_rate_tolerance);
+      HTONLc( netmsg->u.discover.fe_info, notifier_delay);
       break;    
     }
   }
@@ -231,7 +276,7 @@ void ntoh_vtuner_net_message(vtuner_net_message_t* netmsg, vtuner_type_t type) {
   #ifdef DEBUG_NET
     print_vtuner_net_message(netmsg);
   #endif
-  DEBUGNET("ntoh_vtuner_net_message: %x %x", netmsg->msg_type, netmsg->u.vtuner.type );
+  DEBUGNET(" %x %x", netmsg->msg_type, netmsg->u.vtuner.type );
 
   netmsg->msg_type = htonl( netmsg->msg_type );
   HTONLc( netmsg->u.vtuner, type );
@@ -288,6 +333,15 @@ void ntoh_vtuner_net_message(vtuner_net_message_t* netmsg, vtuner_type_t type) {
       break;
     case MSG_DISCOVER:
       NTOHSc( netmsg->u.discover, port);
+      NTOHLc( netmsg->u.discover.fe_info, frequency_min);
+      NTOHLc( netmsg->u.discover.fe_info, frequency_max);
+      NTOHLc( netmsg->u.discover.fe_info, frequency_stepsize);
+      NTOHLc( netmsg->u.discover.fe_info, frequency_tolerance);
+      NTOHLc( netmsg->u.discover.fe_info, symbol_rate_min);
+      NTOHLc( netmsg->u.discover.fe_info, symbol_rate_max);
+      NTOHLc( netmsg->u.discover.fe_info, symbol_rate_tolerance);
+      NTOHLc( netmsg->u.discover.fe_info, notifier_delay);
+      DEBUGNETC(" %d %d %d %d", netmsg->u.discover.port, netmsg->u.discover.fe_info.type, netmsg->u.discover.fe_info.frequency_min, netmsg->u.discover.fe_info.frequency_max);
       break;
     }
   }
@@ -298,7 +352,7 @@ void print_vtuner_net_message(vtuner_net_message_t* netmsg) {
   char* bytes;
   int i;
   bytes=(char*)netmsg;
-  DEBUGNET("print_vtuner_net_message: (%d) ",sizeof(vtuner_net_message_t));
+  DEBUGNET(" (%d) ",sizeof(vtuner_net_message_t));
   for(i=0; i<sizeof(vtuner_net_message_t); ++i) {
     DEBUGNETC("%x ", bytes[i]);
   }

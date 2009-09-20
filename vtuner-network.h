@@ -93,8 +93,22 @@ typedef struct vtuner_message {
         } body;
 } vtuner_message_t;
 
-typedef struct vtuner_discover {
+typedef struct vtuner_frontend_info {
+  char name[128];
   vtuner_type_t type;
+  __u32 frequency_min;
+  __u32 frequency_max;
+  __u32 frequency_stepsize;
+  __u32 frequency_tolerance;
+  __u32 symbol_rate_min;
+  __u32 symbol_rate_max;
+  __u32 symbol_rate_tolerance; 
+  __u32 notifier_delay;
+  __u8 caps;
+} vtuner_frontend_info_t;
+
+typedef struct vtuner_discover {
+  vtuner_frontend_info_t fe_info;   
   __u16 port;
 } vtuner_discover_t;
 
@@ -111,6 +125,8 @@ typedef struct vtuner_net_message {
   void get_dvb_frontend_parameters( FrontendParameters*, vtuner_message_t*, vtuner_type_t);
   void set_dvb_frontend_parameters( vtuner_message_t*, FrontendParameters*, vtuner_type_t); 
 #else
+  void get_dvb_frontend_info( struct dvb_frontend_info*, vtuner_net_message_t*);
+  void set_dvb_frontend_info( vtuner_net_message_t*, struct dvb_frontend_info*);
   void get_dvb_frontend_parameters( struct dvb_frontend_parameters*, vtuner_message_t*, vtuner_type_t); 
   void set_dvb_frontend_parameters( vtuner_message_t*, struct dvb_frontend_parameters*, vtuner_type_t);
 #endif

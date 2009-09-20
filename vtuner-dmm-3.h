@@ -14,6 +14,7 @@
 typedef struct vtuner_hw {
 
   vtuner_type_t type;
+  struct dvb_frontend_info fe_info;
 
   int frontend_fd;
   int demux_fd;
