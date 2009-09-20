@@ -36,22 +36,21 @@ int hw_init(vtuner_hw_t* hw, int adapter, int frontend, int demux) {
     goto error;
   }
 
-  struct dvb_frontend_info info;
-  if(ioctl(hw->frontend_fd, FE_GET_INFO, &info) != 0) {
+  if(ioctl(hw->frontend_fd, FE_GET_INFO, &hw->fe_info) != 0) {
     ERROR("FE_GET_INFO failed for %s\n", devstr);
     goto error;    
   }
 
-  switch(info.type) {
+  switch(hw->fe_info.type) {
     case FE_QPSK: hw->type = VT_S; break;
     case FE_QAM:  hw->type = VT_C; break;
     case FE_OFDM: hw->type = VT_S; break;
     default:
-      ERROR("Unknown frontend type %d\n", info.type);
+      ERROR("Unknown frontend type %d\n", hw->fe_info.type);
       goto cleanup_fe;
   }
 
-  INFO("FE_GET_INFO type:%d\n", info.type);
+  INFO("FE_GET_INFO type:%d\n", hw->fe_info.type);
   
   sprintf( devstr, "/dev/dvb/adapter%d/demux%d", hw->adapter, 0);
   hw->demux_fd = hw->streaming_fd = open(devstr, O_RDWR);

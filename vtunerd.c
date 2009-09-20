@@ -76,13 +76,15 @@ void *discover_worker(void *data) {
         for(i=0; i<MAX_SESSIONS; ++i)
           if(session[i].status == SST_IDLE) {
             DEBUGMAIN("Session %d device type %d is idle\n", i, session[i].hw.type);
-            if(session[i].hw.type == msg.u.discover.type)
+            if(session[i].hw.type == msg.u.discover.fe_info.type)
               break;
           }
         if( i==MAX_SESSIONS ) {
-          INFO("No idle device of type %d\n", msg.u.discover.type);
+          INFO("No idle device of type %d\n", msg.u.discover.fe_info.type);
         } else {
           msg.u.discover.port = session[i].port;
+          set_dvb_frontend_info( &msg, &session[i].hw.fe_info );
+          DEBUGMAIN("GET_FE_INFO type: %d frq_min: %d frq_max: %d\n", msg.u.discover.fe_info.type, msg.u.discover.fe_info.frequency_min, msg.u.discover.fe_info.frequency_max);
           hton_vtuner_net_message(&msg, 0);
           if(sendto(discover_fd, &msg, sizeof(msg), 0, (struct sockaddr *)&client_so, sizeof(client_so))>0) 
             INFO("Answered discover request with session %d\n",i);
@@ -187,6 +189,7 @@ void *session_worker(void *data) {
     data_so.sin_family = AF_INET;
     data_so.sin_addr.s_addr = ctrl_so.sin_addr.s_addr;
     data_so.sin_port = htons(0x9988);
+    fcntl(session->hw.streaming_fd, F_SETFL, O_NONBLOCK);
 
     // INFO("accecpted connect from: %s:%d\n", inet_ntoa(ctrl_so.sin_addr.s_addr), ntohs(ctrl_so.sin_port) );
 
@@ -204,11 +207,13 @@ void *session_worker(void *data) {
       if(pfd[0].revents & POLLIN) {
         unsigned char buffer[188*7]; //FIXME: less than 1500 because of ethernet MTU, is this ok in all cases?
         int rlen = read(session->hw.streaming_fd, buffer, sizeof(buffer));
-        int wlen = sendto(data_fd, buffer, rlen, 0, (struct sockaddr *)&data_so, sizeof(data_so));
-        #ifdef DBGTS
-	write(dbg_fd, buffer, rlen);
-        #endif
-       }
+	if(rlen>0) {
+          int wlen = sendto(data_fd, buffer, rlen, 0, (struct sockaddr *)&data_so, sizeof(data_so));
+          #ifdef DBGTS
+            write(dbg_fd, buffer, rlen);
+          #endif
+        }
+      }
       if(pfd[1].revents & POLLIN) {
         int rlen = read(ctrl_fd, &msg, sizeof(msg));
         if(rlen<=0) goto cleanup_data;
