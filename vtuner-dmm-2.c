@@ -167,6 +167,16 @@ int hw_set_voltage(vtuner_hw_t* hw, __u8 voltage) {
   return ret;
 }
 
+int hw_send_diseq_msg(vtuner_hw_t* hw, __u8* pad) {
+  WARN("MSG_SEND_DISEQC_MSG not implemented\n");
+  return(-1);
+}
+
+int hw_send_diseq_burst(vtuner_hw_t* hw, __u8* pad) {
+  WARN("MSG_SEND_DISEQC_BURST not implemented\n");
+  return(-1);
+}
+
 int hw_pidlist(vtuner_hw_t* hw, __u16* pidlist) {
   int i,j;
   struct dmxPesFilterParams flt;

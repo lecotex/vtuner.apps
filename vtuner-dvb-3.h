@@ -36,6 +36,8 @@ int hw_set_frontend(vtuner_hw_t*, struct dvb_frontend_parameters*);
 int hw_read_status(vtuner_hw_t*, __u32*);
 int hw_set_tone(vtuner_hw_t*, __u8);
 int hw_set_voltage(vtuner_hw_t*, __u8);
+int hw_send_diseq_msg(vtuner_hw_t*, __u8*);
+int hw_send_diseq_burst(vtuner_hw_t*, __u8*);
 int hw_pidlist(vtuner_hw_t*, __u16*);
 
 #endif
