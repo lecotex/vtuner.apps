@@ -138,6 +138,20 @@ int hw_set_voltage(vtuner_hw_t* hw, __u8 voltage) {
   return ret;
 }
 
+int hw_send_diseq_msg(vtuner_hw_t* hw, __u8* pad) {
+  int ret=0;
+  ret=ioctl(hw->frontend_fd, FE_DISEQC_SEND_MASTER_CMD, pad);
+  if( ret != 0 ) WARN("FE_DISEQC_SEND_MASTER_CMD failed - %m\n");
+  return ret;
+}
+
+int hw_send_diseq_burst(vtuner_hw_t* hw, __u8* pad) {
+  int ret=0;
+  ret=ioctl(hw->frontend_fd, FE_DISEQC_SEND_BURST, pad);
+  if( ret != 0 ) WARN("FE_DISEQC_SEND_BURST  - %m\n");
+  return ret;
+}
+
 int hw_pidlist(vtuner_hw_t* hw, __u16* pidlist) {
   int i,j;
 

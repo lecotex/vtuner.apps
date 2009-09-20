@@ -282,10 +282,12 @@ void *session_worker(void *data) {
             case MSG_SET_FRONTEND: 
               get_dvb_frontend_parameters( &fe_params, &msg.u.vtuner, session->hw.type);
               ret=hw_set_frontend( &session->hw, &fe_params);
+              DEBUGMAIN("MSG_SET_FRONTEND\n");
               break;
             case MSG_GET_FRONTEND:
               ret=hw_get_frontend( &session->hw, &fe_params);
               set_dvb_frontend_parameters( &msg.u.vtuner, &fe_params, session->hw.type);
+              DEBUGMAIN("MSG_GET_FRONTEND\n");
               break;
             case MSG_READ_STATUS:
               ret=hw_read_status( &session->hw, &msg.u.vtuner.body.status);
@@ -293,16 +295,19 @@ void *session_worker(void *data) {
               break;
             case MSG_READ_BER:
               ret=ioctl(session->hw.frontend_fd, FE_READ_BER, &msg.u.vtuner.body.ber);
+              DEBUGMAIN("MSG_READ_BER: %d\n", msg.u.vtuner.body.ber);
               break;
             case MSG_READ_SIGNAL_STRENGTH:
               ret=ioctl(session->hw.frontend_fd, FE_READ_SIGNAL_STRENGTH, &msg.u.vtuner.body.ss);
+              DEBUGMAIN("MSG_READ_SIGNAL_STRENGTH: %d\n", msg.u.vtuner.body.ss);
               break;
             case MSG_READ_SNR:
-              ret=ioctl(session->hw.frontend_fd, FE_READ_SNR, &msg.u.vtuner.body.ss);
+              ret=ioctl(session->hw.frontend_fd, FE_READ_SNR, &msg.u.vtuner.body.snr);
+              DEBUGMAIN("MSG_READ_SNR: %d\n", msg.u.vtuner.body.snr);
               break;
             case MSG_READ_UCBLOCKS:
-              //FIXME: ioctl(session->hw.frontend_fd, FE_READ_UNCORRECTED_BLOCKS, &msg.u.vtuner.body.ucb);
-              msg.u.vtuner.body.ucb = 0;
+              ioctl(session->hw.frontend_fd, FE_READ_UNCORRECTED_BLOCKS, &msg.u.vtuner.body.ucb);
+              DEBUGMAIN("MSG_READ_UCBLOCKS %d\n", msg.u.vtuner.body.ucb);
               break;
             case MSG_SET_TONE:
               ret=hw_set_tone(&session->hw, msg.u.vtuner.body.tone);
@@ -313,20 +318,21 @@ void *session_worker(void *data) {
               DEBUGMAIN("MSG_SET_VOLTAGE: 0x%x\n", msg.u.vtuner.body.voltage);
               break;
             case MSG_ENABLE_HIGH_VOLTAGE:
-              if(session->hw.type == VT_S) {
-                //FIXME: no clue yet
-              }
+              //FIXME: need to know how information is passed to client
+              WARN("MSG_ENABLE_HIGH_VOLTAGE is not implemented\n");
               break;
-            case MSG_SEND_DISEQC_MSG:
-              if(session->hw.type == VT_S) {
-                //FIXME: DiSEQ control, no DiSEQ to test
-              }
+            case MSG_SEND_DISEQC_MSG: {
+              int i;
+              ret=hw_send_diseq_msg( &session->hw, msg.u.vtuner.body.pad);
+	      DEBUGMAIN("MSG_SEND_DISEQC_MSG: ");for(i=0;i<30;++i) DEBUGMAINC(" %x", msg.u.vtuner.body.pad[i]); DEBUGMAINC("\n");
               break;
-            case MSG_SEND_DISEQC_BURST:
-              if(session->hw.type == VT_S) {
-                //FIXME: DiSEQ control, no DiSEQ to test
-              }
+            }
+            case MSG_SEND_DISEQC_BURST: {
+              int i;
+              ret=hw_send_diseq_burst( &session->hw, msg.u.vtuner.body.pad);
+              DEBUGMAIN("MSG_SEND_DISEQC_BURST: ");for(i=0;i<30;++i) DEBUGMAINC(" %x", msg.u.vtuner.body.pad[i]); DEBUGMAINC("\n");
               break;
+            }
             case MSG_PIDLIST:
               ret=hw_pidlist( &session->hw, msg.u.vtuner.body.pidlist );
               break;
@@ -336,9 +342,9 @@ void *session_worker(void *data) {
           }
 
           if (msg.u.vtuner.type != MSG_PIDLIST ) {
-	    if( ret!= 0 ) 
-              WARN("vtuner call failed, type:%d reason:%d - %m\n", msg.u.vtuner.type, ret);
             msg.u.vtuner.type = ret;
+            if( ret!= 0 )
+              WARN("vtuner call failed, type:%d reason:%d - %m\n", msg.u.vtuner.type, ret);
             hton_vtuner_net_message(&msg, session->hw.type);
             write(ctrl_fd, &msg, sizeof(msg));        
           }
