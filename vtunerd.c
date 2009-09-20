@@ -61,7 +61,7 @@ void *discover_worker(void *data) {
   memset(&discover_so, 0, sizeof(discover_so));
   discover_so.sin_family = AF_INET;
   discover_so.sin_addr.s_addr = htonl(INADDR_ANY);
-  discover_so.sin_port = htons(0x9988);
+  discover_so.sin_port = htons(0x9989);
   discover_fd = socket(PF_INET, SOCK_DGRAM, IPPROTO_UDP);
 
   if( bind(discover_fd, (struct sockaddr *) &discover_so, sizeof(discover_so)) < 0) {
@@ -191,7 +191,7 @@ void *session_worker(void *data) {
     // INFO("accecpted connect from: %s:%d\n", inet_ntoa(ctrl_so.sin_addr.s_addr), ntohs(ctrl_so.sin_port) );
 
     #ifdef DBGTS
-    int dbg_fd=open(DBGTS, O_RDWR|O_CREAT); 
+    int dbg_fd=open(DBGTS, O_RDWR); 
     if(dbg_fd<0) 
       DEBUGMAIN("Can't open debug ts file %s - %m\n",DBGTS);
     else

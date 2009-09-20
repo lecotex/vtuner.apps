@@ -68,7 +68,7 @@ int main(int argc, char **argv)
 	struct sockaddr_in  msg_so;
 	msg_so.sin_family = AF_INET;
 	msg_so.sin_addr.s_addr = htonl(INADDR_BROADCAST);
-	msg_so.sin_port = htons(0x9988);
+	msg_so.sin_port = htons(0x9989);
 	msg.msg_type = MSG_DISCOVER;
 	msg.u.discover.type = type;
 	msg.u.discover.port = 0;
@@ -122,6 +122,17 @@ int main(int argc, char **argv)
 
 	unsigned char buf[1024*188];
 	int bufptr = 0, bufptr_write = 0;
+
+        #ifdef DEBUG_MAIN
+	int fe = open("/dev/dvb/adapter0/frontend1", O_RDWR);
+	if(fe > 0) {
+	  struct dvb_frontend_info info;
+	  if( ioctl(fe, FE_GET_INFO, &info) == 0 ) {
+            DEBUG("vTuner frontend type is %d (%d is DVB-S, %d is DVB-C, %d is DVB-T)\n", info.type, FE_QPSK, FE_QAM, FE_OFDM);
+	  }
+          close(fe);
+	} 
+        #endif
 
 	while (1)
 	{
@@ -177,6 +188,7 @@ int main(int argc, char **argv)
 			bufptr_write += w;
 			if (bufptr_write == bufptr)
 				bufptr_write = bufptr = 0;
+			DEBUG("wrote %d bytes data\n",w);
 		}
 	}
 	return 0;
