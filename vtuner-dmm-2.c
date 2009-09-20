@@ -45,7 +45,7 @@ int hw_init(vtuner_hw_t* hw, int adapter, int frontend, int demux, int dvr) {
       ERROR("Unknown frontend type %d\n", hw->fe_info.type);
       goto cleanup_fe;
   }
-  INFO("FE_GET_INFO type:%d\n", hw->fe_info.type);
+  INFO("FE_GET_INFO dvb-type:%d vtuner-type:%d\n", hw->fe_info.type, hw->type);
 
   if(ioctl(hw->frontend_fd, FE_SET_POWER_STATE, FE_POWER_ON ) != 0 ) {
     ERROR("FE_SET_POWER_STATE failed - %m\n");
@@ -111,6 +111,13 @@ int hw_get_frontend(vtuner_hw_t* hw, FrontendParameters* fe_params) {
 int hw_set_frontend(vtuner_hw_t* hw, FrontendParameters* fe_params) {
   int ret;
   ret = ioctl(hw->frontend_fd, FE_SET_FRONTEND, fe_params);
+  DEBUGHW("FE_SET_FRONTEND parameters: Freq:%d Inversion: %d", fe_params->Frequency, fe_params->Inversion);
+  switch(hw->type) {
+    case VT_S: DEBUGHWC(" SymbolRate: %d FEC: %d\n", fe_params->u.qpsk.SymbolRate, fe_params->u.qpsk.FEC_inner); break;
+    case VT_C: DEBUGHWC(" SymbolRate: %d FEC: %d QAM: %d\n", fe_params->u.qam.SymbolRate, fe_params->u.qam.FEC_inner, fe_params->u.qam.QAM); break;
+    case VT_T: break; //FIXME
+  }
+ 
   if( ret != 0 ) {
     WARN("FE_SET_FRONTEND failed %d\n", hw->frontend_fd);
     switch(hw->type) {

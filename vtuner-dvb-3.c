@@ -41,7 +41,7 @@ int hw_init(vtuner_hw_t* hw, int adapter, int frontend, int demux, int dvr) {
       ERROR("Unknown frontend type %d\n", hw->fe_info.type); 
       goto cleanup_fe;
   }
-  INFO("FE_GET_INFO type:%d\n", hw->type);
+  INFO("FE_GET_INFO dvb-type:%d vtuner-type:%d\n", hw->fe_info.type, hw->type);
 
   sprintf( devstr, "/dev/dvb/adapter%d/dvr%d", hw->adapter, dvr); 
   hw->streaming_fd = open( devstr, O_RDONLY);

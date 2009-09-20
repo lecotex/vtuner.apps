@@ -113,9 +113,9 @@ int *discover_worker(void *d) {
 
   memset(&data->msg, 0, sizeof(data->msg));
   data->msg.msg_type = MSG_DISCOVER;
-  data->msg.u.discover.fe_info.type = data->types;
+  data->msg.u.discover.vtype = data->types;
   data->msg.u.discover.port = 0;
-  hton_vtuner_net_message(&data->msg, 0);
+  hton_vtuner_net_message(&data->msg, 0); // we don't care tuner type for conversion of discover
 
   int timeo = 100;
   do {
@@ -146,25 +146,69 @@ typedef enum vtuner_status {
   VTS_CONNECTED
 } vtuner_status_t;
 
+// dvb_frontend_info for DVB-S2
+struct dvb_frontend_info fe_info_dvbs2 = {
+  .name                  = "vTuner DVB-S2",
+  .type                  = 0,
+  .frequency_min         = 925000,
+  .frequency_max         = 2175000,
+  .frequency_stepsize    = 125000,
+  .frequency_tolerance   = 0,
+  .symbol_rate_min       = 1000000,
+  .symbol_rate_max       = 45000000,
+  .symbol_rate_tolerance = 0,
+  .notifier_delay        = 0,
+  .caps                  = 0x400006ff
+};
+
+
+struct dvb_frontend_info fe_info_dvbs = {
+  .name                  = "vTuner DVB-S",
+  .type                  = 0,
+  .frequency_min         = 950000,
+  .frequency_max         = 2150000,
+  .frequency_stepsize    = 125,
+  .frequency_tolerance   = 0,
+  .symbol_rate_min       = 1000000,
+  .symbol_rate_max       = 45000000,
+  .symbol_rate_tolerance = 500,
+  .notifier_delay        = 0,
+  .caps                  = 0x6af
+};
+
+struct dvb_frontend_info fe_info_dvbc = {
+  .name                  = "vTuner DVB-C",
+  .type                  = 1,
+  .frequency_min         = 55000000,
+  .frequency_max         = 862000000,
+  .frequency_stepsize    = 0,
+  .frequency_tolerance   = 0,
+  .symbol_rate_min       = 451875,
+  .symbol_rate_max       = 7230000,
+  .symbol_rate_tolerance = 0,
+  .notifier_delay        = 0,
+  .caps                  = 0x1
+};
+
+struct dvb_frontend_info fe_info_dvbt = {
+  .name                  = "vTuner DVB-T",
+  .type                  = 2,
+  .frequency_min         = 51000000,
+  .frequency_max         = 858000000,
+  .frequency_stepsize    = 166667,
+  .frequency_tolerance   = 0,
+  .symbol_rate_min       = 0,
+  .symbol_rate_max       = 0,
+  .symbol_rate_tolerance = 0,
+  .notifier_delay        = 0,
+  .caps                  = 0xb2eaf
+};
+
 int main(int argc, char **argv) {
 
   int type;
   char ctype[7];
-
-  if(strstr(argv[0],"vtunercs") != NULL) {
-    type = VT_S; 
-    strncpy(ctype,"DVB-S2",sizeof(ctype));
-  } else if(strstr(argv[0],"vtunerct") != NULL ) {
-    type = VT_T;
-    strncpy(ctype,"DVB-T",sizeof(ctype));
-  } else if(strstr(argv[0],"vtunercc") != NULL ) {
-    type = VT_C;
-    strncpy(ctype,"DVB-C",sizeof(ctype));
-  } else {
-    ERROR("unknown filename\n");
-    exit(1);
-  }
-  INFO("Simulating a %s tuner\n", ctype); 
+  struct dvb_frontend_info* vtuner_info;
 
   int vtuner_control = open("/dev/misc/vtuner0", O_RDWR);
   if (vtuner_control < 0) {
@@ -172,21 +216,41 @@ int main(int argc, char **argv) {
     return 1;
   }
 
-  /* setup /proc/bus/nim_sockets */
-  //char name[80];
-  //sprintf(name, "VT-%s", inet_ntoa(server_so.sin_addr));
   if (ioctl(vtuner_control, VTUNER_SET_NAME, "vTuner"))  {
     ERROR("VTUNER_SET_NAME failed - %m\n");
     exit(1);
   }
+
+  if (ioctl(vtuner_control, VTUNER_SET_HAS_OUTPUTS, "no")) {
+    ERROR("VTUNER_SET_HAS_OUTPUTS failed - %m\n");
+    exit(1);
+  }
+
+  if(strstr(argv[0],"vtunercs") != NULL) {
+    type = VT_S; 
+    strncpy(ctype,"DVB-S2",sizeof(ctype));
+    vtuner_info = &fe_info_dvbs2;
+  } else if(strstr(argv[0],"vtunerct") != NULL ) {
+    type = VT_T;
+    strncpy(ctype,"DVB-T",sizeof(ctype));
+    vtuner_info = &fe_info_dvbc;
+  } else if(strstr(argv[0],"vtunercc") != NULL ) {
+    type = VT_C;
+    strncpy(ctype,"DVB-C",sizeof(ctype));
+    vtuner_info = &fe_info_dvbt;
+  } else {
+    ERROR("unknown filename\n");
+    exit(1);
+  }
+  INFO("Simulating a %s tuner\n", ctype); 
 
   if (ioctl(vtuner_control, VTUNER_SET_TYPE, ctype)) {
     ERROR("VTUNER_SET_TYPE failed - %m\n");
     exit(1);
   }
 
-  if (ioctl(vtuner_control, VTUNER_SET_HAS_OUTPUTS, "no")) {
-    ERROR("VTUNER_SET_HAS_OUTPUTS failed - %m\n");
+  if (ioctl(vtuner_control, VTUNER_SET_FE_INFO, vtuner_info)) {
+    ERROR("VTUNER_SET_NAME failed - %m\n");
     exit(1);
   }
 
@@ -196,7 +260,6 @@ int main(int argc, char **argv) {
   long values_received = 0;
   vtuner_update_t values;
   int vfd;
-  int fe_set = 0;
 
   #define RECORDLEN 5
   vtuner_net_message_t record[RECORDLEN]; // SET_TONE, SET_VOLTAGE, SEND_DISEQC_MSG, MSG_PIDLIST
@@ -222,17 +285,6 @@ int main(int argc, char **argv) {
 
         // pthread_join(&dst, NULL); // wait till discover threads finish, if hasn't
         dsd.status = DWS_IDLE;    // now it's sure to be idle
- 
-        if(!fe_set) {
-          struct dvb_frontend_info fe_info;
-          get_dvb_frontend_info( &fe_info, &dsd.msg);
-          DEBUG("SET_FE_INFO type: %d frq_min: %d frq_max: %d\n", dsd.msg.u.discover.fe_info.type, dsd.msg.u.discover.fe_info.frequency_min, dsd.msg.u.discover.fe_info.frequency_max);
-          if (ioctl(vtuner_control, VTUNER_SET_FE_INFO, &fe_info)) {
-            ERROR("VTUNER_SET_NAME failed - %m\n");
-            exit(1);
-          }
-          fe_set=1;
-        }
 
         vfd = socket(PF_INET, SOCK_STREAM, 0);
         if(vfd<0) {
