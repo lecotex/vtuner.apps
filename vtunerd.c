@@ -2,20 +2,20 @@
 #include <stdlib.h>
 #include <fcntl.h>
 #include <pthread.h>
+#include <syslog.h>
 
 #include "vtunerd-service.h"
+#include "vtuner-utils.h"
 
-#ifdef DEBUG_MAIN
-#define DEBUGMAIN(msg, ...) fprintf(stderr,"[%d %s:%u] debug: " msg, getpid(), __FILE__, __LINE__, ## __VA_ARGS__)
-#define DEBUGMAINC(msg, ...) fprintf(stderr,msg, ## __VA_ARGS__)
-#else
-#define DEBUGMAIN(msg, ...)
-#define DEBUGMAINC(msg, ...)
-#endif
+int dbg_level  = 0x00ff;
+int use_syslog = 0;
 
-int dbg_level = 2;
+#define DEBUGMAIN(msg, ...)  write_message(0x0010, "[%d %s:%u] debug: " msg, getpid(), __FILE__, __LINE__, ## __VA_ARGS__)
+#define DEBUGMAINC(msg, ...) write_message(0x0010, msg, ## __VA_ARGS__)
 
 int main(int argc, char **argv) {
+
+  openlog("vtunerd", LOG_PERROR, LOG_USER);
 
   int i;
   vtuner_session_t session[MAX_SESSIONS]; 
