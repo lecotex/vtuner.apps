@@ -95,6 +95,7 @@ typedef struct vtuner_message {
         } body;
 } vtuner_message_t;
 
+/*
 typedef struct vtuner_frontend_info {
   char name[128];
   vtuner_type_t type;
@@ -108,9 +109,11 @@ typedef struct vtuner_frontend_info {
   __u32 notifier_delay;
   __u8 caps;
 } vtuner_frontend_info_t;
+*/
 
 typedef struct vtuner_discover {
-  vtuner_frontend_info_t fe_info;   
+//  vtuner_frontend_info_t fe_info;   
+  vtuner_type_t vtype;
   __u16 port;
   __u16 tsdata_port;
   char tuner_group[80];
@@ -134,13 +137,13 @@ typedef struct vtuner_net_message {
 } vtuner_net_message_t;
 
 #if HAVE_DVB_API_VERSION < 3
-  void get_dvb_frontend_info( FrontendInfo*, vtuner_net_message_t*);
-  void set_dvb_frontend_info( vtuner_net_message_t*, FrontendInfo*);
+//  void get_dvb_frontend_info( FrontendInfo*, vtuner_net_message_t*);
+//  void set_dvb_frontend_info( vtuner_net_message_t*, FrontendInfo*);
   void get_dvb_frontend_parameters( FrontendParameters*, vtuner_message_t*, vtuner_type_t);
   void set_dvb_frontend_parameters( vtuner_message_t*, FrontendParameters*, vtuner_type_t); 
 #else
-  void get_dvb_frontend_info( struct dvb_frontend_info*, vtuner_net_message_t*);
-  void set_dvb_frontend_info( vtuner_net_message_t*, struct dvb_frontend_info*);
+//  void get_dvb_frontend_info( struct dvb_frontend_info*, vtuner_net_message_t*);
+//  void set_dvb_frontend_info( vtuner_net_message_t*, struct dvb_frontend_info*);
   void get_dvb_frontend_parameters( struct dvb_frontend_parameters*, vtuner_message_t*, vtuner_type_t); 
   void set_dvb_frontend_parameters( vtuner_message_t*, struct dvb_frontend_parameters*, vtuner_type_t);
 #endif

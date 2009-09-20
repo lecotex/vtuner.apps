@@ -11,7 +11,7 @@ $CC $CFLAGS -c -o vtuner-network.$ARCH.o vtuner-network.c
 $CC $CFLAGS -c -o vtunerd-service.$ARCH.o vtunerd-service.c
 $CC $CFLAGS -c -o vtuner-dvb-3.$ARCH.o vtuner-dvb-3.c
 $CC $CFLAGS $LDFLAGS -o vtunerd.$ARCH vtuner-network.$ARCH.o vtunerd-service.$ARCH.o vtuner-dvb-3.$ARCH.o vtunerd.c
-$CC $CFLAGS $LDFLAGS -o vtunerc-test.$ARCH vtuner-network.$ARCH.o vtuner-dvb-3.$ARCH.o vtunerc-test.c
+# $CC $CFLAGS $LDFLAGS -o vtunerc-test.$ARCH vtuner-network.$ARCH.o vtuner-dvb-3.$ARCH.o vtunerc-test.c
 
 CC=/stuff/dm800/build/tmp/cross/bin/mipsel-linux-gcc
 ARCH=mipsel
@@ -19,6 +19,8 @@ CFLAGS="-fpic -DHAVE_DVB_API_VERSION=3 -DHAVE_DREAMBOX_HARDWARE "$DBGFLAGS
 LDFLAGS="-lpthread -lrt"
 $CC $CFLAGS -c -o vtuner-network.$ARCH.o vtuner-network.c
 $CC $CFLAGS $LDFLAGS -o vtunerc.$ARCH vtuner-network.$ARCH.o vtunerc.c
+cp vtunerc.mipsel ipkg-vtunerc/usr/sbin/vtunerc.mipsel
+./ipkg-build ipkg-vtunerc
 
 LDFLAGS=$LDFLAGS" -L. -lvtuner-$ARCH"
 $CC $CFLAGS -c -o vtuner-dmm-3.$ARCH.o vtuner-dmm-3.c
