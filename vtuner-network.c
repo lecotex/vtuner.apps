@@ -293,6 +293,7 @@ void hton_vtuner_net_message(vtuner_net_message_t* netmsg, vtuner_type_t type) {
     case MSG_DISCOVER:
       DEBUGNETC(" %d %d %d %d", netmsg->u.discover.port, netmsg->u.discover.fe_info.type, netmsg->u.discover.fe_info.frequency_min, netmsg->u.discover.fe_info.frequency_max);
       HTONSc( netmsg->u.discover, port);
+      HTONLc( netmsg->u.discover.fe_info, type);
       HTONLc( netmsg->u.discover.fe_info, frequency_min);
       HTONLc( netmsg->u.discover.fe_info, frequency_max);
       HTONLc( netmsg->u.discover.fe_info, frequency_stepsize);
@@ -385,6 +386,7 @@ void ntoh_vtuner_net_message(vtuner_net_message_t* netmsg, vtuner_type_t type) {
       break;
     case MSG_DISCOVER:
       NTOHSc( netmsg->u.discover, port);
+      NTOHLc( netmsg->u.discover.fe_info, type);
       NTOHLc( netmsg->u.discover.fe_info, frequency_min);
       NTOHLc( netmsg->u.discover.fe_info, frequency_max);
       NTOHLc( netmsg->u.discover.fe_info, frequency_stepsize);

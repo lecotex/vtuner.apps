@@ -16,7 +16,7 @@ typedef enum {
 #define DMX_ADD_PID              _IO('o', 51)
 #define DMX_REMOVE_PID           _IO('o', 52)
 
-int hw_init(vtuner_hw_t* hw, int adapter, int frontend, int demux) {
+int hw_init(vtuner_hw_t* hw, int adapter, int frontend, int demux, int dvr) {
 
   char devstr[80];
   int i;
@@ -44,7 +44,7 @@ int hw_init(vtuner_hw_t* hw, int adapter, int frontend, int demux) {
   switch(hw->fe_info.type) {
     case FE_QPSK: hw->type = VT_S; break;
     case FE_QAM:  hw->type = VT_C; break;
-    case FE_OFDM: hw->type = VT_S; break;
+    case FE_OFDM: hw->type = VT_T; break;
     default:
       ERROR("Unknown frontend type %d\n", hw->fe_info.type);
       goto cleanup_fe;
@@ -52,11 +52,17 @@ int hw_init(vtuner_hw_t* hw, int adapter, int frontend, int demux) {
 
   INFO("FE_GET_INFO type:%d\n", hw->fe_info.type);
   
-  sprintf( devstr, "/dev/dvb/adapter%d/demux%d", hw->adapter, 0);
+  sprintf( devstr, "/dev/dvb/adapter%d/demux%d", hw->adapter, demux);
   hw->demux_fd = hw->streaming_fd = open(devstr, O_RDWR);
   if(hw->demux_fd<0) {
     ERROR("failed to open %s\n", devstr);
     goto cleanup_fe;
+  }
+
+  dmx_source_t src = DMX_SOURCE_FRONT0 + frontend;
+  if( ioctl(hw->demux_fd, DMX_SET_SOURCE, &src) ) {
+    ERROR("DMX_SET_SOURCE failed for %s - %m\n",devstr);
+    goto cleanup_demux;
   }
 
   if( ioctl(hw->demux_fd, DMX_SET_BUFFER_SIZE, 1024*1024) != 0 ) {

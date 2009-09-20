@@ -7,7 +7,7 @@
 
 #include "vtuner-dvb-3.h"
 
-int hw_init(vtuner_hw_t* hw, int adapter, int frontend, int demux) {
+int hw_init(vtuner_hw_t* hw, int adapter, int frontend, int demux, int dvr) {
 
   char devstr[80];
   int i;
@@ -43,20 +43,21 @@ int hw_init(vtuner_hw_t* hw, int adapter, int frontend, int demux) {
   }
   INFO("FE_GET_INFO type:%d\n", hw->type);
 
-  sprintf( devstr, "/dev/dvb/adapter%d/dvr%d", hw->adapter, 0); 
+  sprintf( devstr, "/dev/dvb/adapter%d/dvr%d", hw->adapter, dvr); 
   hw->streaming_fd = open( devstr, O_RDONLY);
   if(hw->streaming_fd < 0) {
     ERROR("failed to open %s\n", devstr);
     goto cleanup_fe;
   }
 
-  sprintf( devstr, "/dev/dvb/adapter%d/demux%d", hw->adapter, 0);
+  sprintf( devstr, "/dev/dvb/adapter%d/demux%d", hw->adapter, demux);
   for(i=0; i<MAX_DEMUX; ++i) {
     hw->demux_fd[i] = open(devstr, O_RDWR);
     if(hw->demux_fd[i]<0) {
       ERROR("failed to open %s\n", devstr);
       goto cleanup_demux;
     }
+
     if( ioctl(hw->demux_fd[i], DMX_SET_BUFFER_SIZE, 1024*16) != 0 ) {
       ERROR("DMX_SET_BUFFER_SIZE failed for %s\n",devstr);
       goto cleanup_demux;

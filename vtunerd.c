@@ -12,6 +12,8 @@
 #include <netinet/in.h>
 #include <netinet/tcp.h>
 
+#include <time.h>
+
 #include "vtuner-network.h"
 
 #if HAVE_DVB_API_VERSION < 3
@@ -46,7 +48,7 @@ typedef struct vtuner_session {
   struct sockaddr_in ctrl_so;
   vtuner_session_status_t status;
 } vtuner_session_t;
-#define MAX_SESSIONS 1
+#define MAX_SESSIONS 8
 
 void *discover_worker(void *data) {
   vtuner_session_t* session = (vtuner_session_t*)data;
@@ -122,26 +124,38 @@ void *tsdata_worker(void *d) {
     DEBUGMAIN("copy TS data to %s\n", DBGTS);
   #endif
 
-  unsigned char buffer[188*4096]; 
+  unsigned char buffer[188*696]; 
   int bufptr = 0, bufptr_write = 0;
+
+  long now, last_written;
+  struct timespec t;
+  clock_gettime(CLOCK_MONOTONIC, &t);
+  last_written = t.tv_sec*1000 + t.tv_nsec/1000000;
 
   while( data->status == DST_RUNNING) {
     struct pollfd pfd[] = { { data->in, POLLIN, 0 } };
-    poll(pfd, 1, 5);
+    poll(pfd, 1, 50);
     if(pfd[0].revents & POLLIN) {
       int rlen = read(data->in, buffer + bufptr, sizeof(buffer) - bufptr);
       if(rlen>0) bufptr += rlen;
-      int w = bufptr - bufptr_write;
-      if( w > 32768) {
-	if( w > 65424) w = 65424; // cap write to max. udp msg size rounded down to ts
-        int wlen = sendto(data->out, buffer + bufptr_write, w, 0, data->data_so, sizeof(*data->data_so));
-        if(wlen>0) bufptr_write += wlen;
-        if (bufptr_write == bufptr) bufptr_write = bufptr = 0;
-        #ifdef DBGTS
-          //FIXME
-          write(dbg_fd, buffer, rlen);
-        #endif
+    }
+
+    int w = bufptr - bufptr_write;
+    clock_gettime(CLOCK_MONOTONIC, &t); 
+    now = t.tv_sec*1000 + t.tv_nsec/1000000;
+
+    if( w >= 65424 || ( now - last_written > 100 && w>0) ) {
+      if( w > 65424) w = 65424; // cap write to max. udp msg size rounded down to ts
+      int wlen = sendto(data->out, buffer + bufptr_write, w, 0, data->data_so, sizeof(*data->data_so));
+      if(wlen>0) {
+        bufptr_write += wlen;
+        last_written = now;
       }
+      if (bufptr_write == bufptr) bufptr_write = bufptr = 0;
+      #ifdef DBGTS
+        //FIXME
+        write(dbg_fd, buffer, rlen);
+      #endif
     }
   }
 
@@ -361,14 +375,38 @@ int main(int argc, char **argv) {
   struct sockaddr_in listen_so;
 
   for(i=0; i<MAX_SESSIONS; ++i) session[i].status = SST_UNKNOWN;
-  hw_init(&session[0].hw, 0, 0, 0);  // init adapter0 with frontend0 and demux0
+  int hw_count;
+  if(argc == 1) {
+    if(hw_init(&session[0].hw, 0, 0, 0, 0) != 0) {  // init adapter0 with frontend0 and demux0
+      ERROR("failed to init hardware (adapter 0, frontend 0, demux 0, dvr 0)\n");
+      exit(1);
+    }
+    hw_count = 1;
+  } else {
+    hw_count=atoi(argv[1]);
+    if( hw_count*4 + 2 != argc ) {
+      ERROR("Parameter mismatch. %d tuner(s) requires %d arguments, but %d given.\n", hw_count, hw_count*4 + 1, argc-1);
+      exit(2);
+    }
+    DEBUGMAIN("try to init %d tuner(s)\n", hw_count);
+    for(i=0;i<hw_count;++i) {
+      int a=atoi(argv[i*4+2]);
+      int f=atoi(argv[i*4+3]);
+      int dm=atoi(argv[i*4+4]);
+      int dv=atoi(argv[i*4+5]);
+      DEBUGMAIN("init hardware adapter %d, frontend %d, demux %d, dvr %d\n",a,f,dm,dv);
+      if(hw_init(&session[i].hw, a, f, dm, dv) != 0) {
+        ERROR("failed to init hardware (adapter %d, frontend %d, demux %d, dvr %d)\n",a,f,dm,dv);
+        exit(1);
+      }
+    }
+  }
 
-  pthread_create( &discover, NULL, discover_worker, &session );
-
-  for(i=0; i<MAX_SESSIONS; ++i) {
+  for(i=0; i<hw_count; ++i) {
     pthread_create( &worker[i], NULL, session_worker, (void*)&session[i]);
   }
 
+  pthread_create( &discover, NULL, discover_worker, &session );
+
   pthread_join(discover, NULL);      
-  pthread_join(worker[0], NULL);
 }

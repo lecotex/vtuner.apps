@@ -48,10 +48,18 @@ void *tsdata_worker(void *d) {
   unsigned char buf[4096*188];
   int bufptr = 0, bufptr_write = 0;
 
+  long now, last_written;
+  struct timespec t;
+  clock_gettime(CLOCK_MONOTONIC, &t);
+  last_written = t.tv_sec*1000 + t.tv_nsec/1000000;
+
   while(data->status == DST_RUNNING) {
+    clock_gettime(CLOCK_MONOTONIC, &t);
+    now = t.tv_sec*1000 + t.tv_nsec/1000000;
+
     struct pollfd pfd[] = { { data->in, 0, 0 }, { data->out, 0, 0 } };
     int can_read = (sizeof(buf) - bufptr) > 1500;
-    int can_write = ( bufptr - 65536 > bufptr_write);
+    int can_write = ( bufptr - 65536 > bufptr_write) || (now - last_written > 100 && bufptr > bufptr_write);
     if (can_read) pfd[0].events |= POLLIN;
     if (can_write) pfd[1].events |= POLLOUT;
     poll(pfd, 2, 5);  // don't poll forever to catch data->status != DST_RUNNING
@@ -71,6 +79,7 @@ void *tsdata_worker(void *d) {
         ERROR("write failed - %m");
         exit(1);
       }
+      last_written = now;
       bufptr_write += w;
       if (bufptr_write == bufptr) bufptr_write = bufptr = 0;
     }

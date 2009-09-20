@@ -30,7 +30,7 @@ typedef struct vtuner_hw {
   int demux;
 } vtuner_hw_t;
 
-int hw_init(vtuner_hw_t*, int, int, int);
+int hw_init(vtuner_hw_t*, int, int, int, int);
 int hw_get_frontend(vtuner_hw_t*, struct dvb_frontend_parameters*);
 int hw_set_frontend(vtuner_hw_t*, struct dvb_frontend_parameters*);
 int hw_read_status(vtuner_hw_t*, __u32*);
