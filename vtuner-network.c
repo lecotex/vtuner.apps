@@ -36,7 +36,6 @@
           case 7: hfe->u.qpsk.FEC_inner   = FEC_7_8;  break;
           default: hfe->u.qpsk.FEC_inner   = FEC_AUTO; break;
         }	
-        hfe->u.qpsk.FEC_inner		= netmsg->body.fe_params.u.qpsk.fec_inner;
         break;
       case VT_C:
         hfe->u.qam.SymbolRate		= netmsg->body.fe_params.u.qam.symbol_rate;

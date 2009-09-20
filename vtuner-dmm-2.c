@@ -4,6 +4,7 @@
 #include <fcntl.h>
 #include <string.h>
 #include <poll.h>
+#include <ost/dmx.h>
 
 #include "vtuner-dmm-2.h"
 
@@ -66,14 +67,42 @@ int hw_init(vtuner_hw_t* hw, int adapter, int frontend, int demux) {
     goto cleanup_demux;
   }
 
-  sprintf( devstr, "/dev/dvb/card%d/sec%d", hw->adapter, 0);
-  hw->sec_fd= open(devstr, O_RDWR);
-  if(hw->sec_fd<0) {
+  struct dmxPesFilterParams flt;
+  flt.pid = 0;
+  flt.input = DMX_IN_FRONTEND;
+  flt.pesType = DMX_PES_OTHER;
+  flt.output = DMX_OUT_TAP;
+  flt.flags = 0;
+  if(ioctl(hw->demux_fd, DMX_SET_PES_FILTER, &flt) !=0) {
+    ERROR("DMX_SET_PES_FILTER failed for %s\n", devstr);
+    goto cleanup_demux;
+  }
+
+/*
+  sprintf( devstr, "/dev/dvb/card%d/dvr%d", hw->adapter, 0);
+  hw->streaming_fd = open(devstr, O_RDONLY);
+  if(hw->streaming_fd<0) {
     ERROR("failed to open %s\n", devstr);
     goto cleanup_demux;
   }
 
+  if(ioctl(hw->demux_fd, DMX_START, 0) != 0) {
+    ERROR("DMX_START failed for %s\n", devstr);
+    goto cleanup_dvr;
+  }
+*/
+
+  sprintf( devstr, "/dev/dvb/card%d/sec%d", hw->adapter, 0);
+  hw->sec_fd= open(devstr, O_RDWR);
+  if(hw->sec_fd<0) {
+    ERROR("failed to open %s\n", devstr);
+    goto cleanup_dvr;
+  }
+
   return 0;
+
+cleanup_dvr:
+  close(hw->streaming_fd);
 
 cleanup_demux:
   close(hw->demux_fd);
@@ -95,7 +124,20 @@ int hw_get_frontend(vtuner_hw_t* hw, FrontendParameters* fe_params) {
 int hw_set_frontend(vtuner_hw_t* hw, FrontendParameters* fe_params) {
   int ret;
   ret = ioctl(hw->frontend_fd, FE_SET_FRONTEND, fe_params);
-  if( ret != 0 ) WARN("FE_SET_FRONTEND failed %d\n", hw->frontend_fd);
+  if( ret != 0 ) {
+    WARN("FE_SET_FRONTEND failed %d\n", hw->frontend_fd);
+    switch(hw->type) {
+      case VT_S: 
+        WARN("FE_SET_FRONTEND parameters: Freq:%d Inversion: %d SymbolRate: %d FEC: %d\n", fe_params->Frequency, fe_params->Inversion, fe_params->u.qpsk.SymbolRate, fe_params->u.qpsk.FEC_inner);
+        break;
+     case VT_C:
+        //FIXME: DVB_C Params
+        break;
+     case VT_T:
+        //FIXME: DVB_C Params
+        break;
+    }
+  }
   return ret;
 }
 
@@ -164,10 +206,17 @@ int hw_pidlist(vtuner_hw_t* hw, __u16* pidlist) {
       for(j=0; j<30; ++j) 
         if(pidlist[i] == hw->pids[j])
           break;
-      ioctl(hw->demux_fd, DMX_ADD_PID, pidlist[i]);
-      DEBUGHW("add pid %d\n",  pidlist[i]);
+      if(j == 30) {
+        ioctl(hw->demux_fd, DMX_ADD_PID, pidlist[i]);
+        DEBUGHW("add pid %d\n",  pidlist[i]);
+      }
     }
 
   memcpy(hw->pids, pidlist, sizeof(hw->pids));
+
+  if(ioctl(hw->demux_fd, DMX_START, 0) != 0) {
+    ERROR("DMX_START failed\n");
+  }
+
   return 0;
 }

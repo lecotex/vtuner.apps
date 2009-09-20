@@ -4,8 +4,14 @@
 #include <fcntl.h>
 #include <string.h>
 #include <poll.h>
+#include <linux/dvb/dmx.h>
 
 #include "vtuner-dmm-3.h"
+
+typedef enum {
+        DMX_TAP_TS = 0,
+        DMX_TAP_PES = DMX_PES_OTHER, /* for backward binary compat. */
+} dmx_tap_type_t;
 
 #define DMX_ADD_PID              _IO('o', 51)
 #define DMX_REMOVE_PID           _IO('o', 52)
@@ -53,12 +59,25 @@ int hw_init(vtuner_hw_t* hw, int adapter, int frontend, int demux) {
     ERROR("failed to open %s\n", devstr);
     goto cleanup_fe;
   }
+
   if( ioctl(hw->demux_fd, DMX_SET_BUFFER_SIZE, 1024*1024) != 0 ) {
     ERROR("DMX_SET_BUFFER_SIZE failed for %s\n",devstr);
     goto cleanup_demux;
   }
+
   if( fcntl(hw->demux_fd, F_SETFL, O_NONBLOCK) != 0) {
     ERROR("O_NONBLOCK failed for %s\n",devstr);
+    goto cleanup_demux;
+  }
+
+  struct dmx_pes_filter_params flt;
+  flt.pid = -1;
+  flt.input = DMX_IN_FRONTEND;
+  flt.output = DMX_OUT_TAP;
+  flt.pes_type = DMX_TAP_TS;
+  flt.flags = 0;
+  if(ioctl(hw->demux_fd, DMX_SET_PES_FILTER, &flt) !=0) {
+    ERROR("DMX_SET_PES_FILTER failed for %s\n", devstr);
     goto cleanup_demux;
   }
 
@@ -136,8 +155,10 @@ int hw_pidlist(vtuner_hw_t* hw, __u16* pidlist) {
       for(j=0; j<30; ++j) 
         if(pidlist[i] == hw->pids[j])
           break;
-      ioctl(hw->demux_fd, DMX_ADD_PID, pidlist[i]);
-      DEBUGHW("add pid %d\n",  pidlist[i]);
+      if(j == 30) {
+        ioctl(hw->demux_fd, DMX_ADD_PID, pidlist[i]);
+        DEBUGHW("add pid %d\n",  pidlist[i]);
+      }
     }
 
   memcpy(hw->pids, pidlist, sizeof(hw->pids));
