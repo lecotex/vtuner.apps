@@ -60,24 +60,24 @@ typedef struct vtuner_message {
 			union {
 				struct {
 					__u32	symbol_rate;
-					__u8	fec_inner;
+					__u32	fec_inner;
 				} qpsk;
 				struct {
 					__u32   symbol_rate;
-					__u8    fec_inner;
-					__u8	modulation;
+					__u32   fec_inner;
+					__u32	modulation;
 				} qam;
 				struct {
-					__u8	bandwidth;
-					__u8	code_rate_HP;
-					__u8	code_rate_LP;
-					__u8	constellation;
-					__u8	transmission_mode;
-					__u8	guard_interval;
-					__u8	hierarchy_information;
+					__u32	bandwidth;
+					__u32	code_rate_HP;
+					__u32	code_rate_LP;
+					__u32	constellation;
+					__u32	transmission_mode;
+					__u32	guard_interval;
+					__u32	hierarchy_information;
 				} ofdm;
 				struct {
-					__u8	modulation;
+					__u32	modulation;
 				} vsb;
 			} u;
 		} fe_params;

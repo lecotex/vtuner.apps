@@ -95,6 +95,59 @@ void *discover_worker(void *data) {
   }
 }
 
+typedef enum tsdata_worker_status {
+  DST_UNKNOWN,
+  DST_RUNNING,
+  DST_EXITING
+} tsdata_worker_status_t;
+
+typedef struct tsdata_worker_data {
+  int in;
+  int out;
+  struct sockaddr* data_so;
+  tsdata_worker_status_t status;
+} tsdata_worker_data_t;
+
+void *tsdata_worker(void *d) {
+  tsdata_worker_data_t* data = (tsdata_worker_data_t*)d;
+
+  data->status = DST_RUNNING;
+  DEBUGMAIN("tsdata_worker thread started.\n");
+
+  #ifdef DBGTS
+  int dbg_fd=open(DBGTS, O_RDWR);
+  if(dbg_fd<0)
+    DEBUGMAIN("Can't open debug ts file %s - %m\n",DBGTS);
+  else
+    DEBUGMAIN("copy TS data to %s\n", DBGTS);
+  #endif
+
+  unsigned char buffer[188*4096]; 
+  int bufptr = 0, bufptr_write = 0;
+
+  while( data->status == DST_RUNNING) {
+    struct pollfd pfd[] = { { data->in, POLLIN, 0 } };
+    poll(pfd, 1, 5);
+    if(pfd[0].revents & POLLIN) {
+      int rlen = read(data->in, buffer + bufptr, sizeof(buffer) - bufptr);
+      if(rlen>0) bufptr += rlen;
+      int w = bufptr - bufptr_write;
+      if( w > 32768) {
+	if( w > 65424) w = 65424; // cap write to max. udp msg size rounded down to ts
+        int wlen = sendto(data->out, buffer + bufptr_write, w, 0, data->data_so, sizeof(*data->data_so));
+        if(wlen>0) bufptr_write += wlen;
+        if (bufptr_write == bufptr) bufptr_write = bufptr = 0;
+        #ifdef DBGTS
+          //FIXME
+          write(dbg_fd, buffer, rlen);
+        #endif
+      }
+    }
+  }
+
+  data->status = DST_UNKNOWN; 
+}
+
 void *session_worker(void *data) {
   vtuner_session_t *session = (vtuner_session_t*)data;
     
@@ -193,30 +246,20 @@ void *session_worker(void *data) {
 
     // INFO("accecpted connect from: %s:%d\n", inet_ntoa(ctrl_so.sin_addr.s_addr), ntohs(ctrl_so.sin_port) );
 
-    #ifdef DBGTS
-    int dbg_fd=open(DBGTS, O_RDWR); 
-    if(dbg_fd<0) 
-      DEBUGMAIN("Can't open debug ts file %s - %m\n",DBGTS);
-    else
-      DEBUGMAIN("copy TS data to %s\n", DBGTS);
-    #endif
-
+    tsdata_worker_data_t dwd;
+    dwd.in = session->hw.streaming_fd;
+    dwd.out = data_fd;
+    dwd.status = DST_UNKNOWN;
+    dwd.data_so = (struct sockaddr*)&data_so;
+    pthread_t dwt;
+    pthread_create( &dwt, NULL, tsdata_worker, &dwd );
+    
     while(1) {
-      struct pollfd pfd[] = { { session->hw.streaming_fd, POLLIN, 0 }, { ctrl_fd, POLLIN, 0 } };
-      poll(pfd, 2, -1);
+      struct pollfd pfd[] = { { ctrl_fd, POLLIN, 0 } };
+      poll(pfd, 1, 1000);
       if(pfd[0].revents & POLLIN) {
-        unsigned char buffer[188*7]; //FIXME: less than 1500 because of ethernet MTU, is this ok in all cases?
-        int rlen = read(session->hw.streaming_fd, buffer, sizeof(buffer));
-	if(rlen>0) {
-          int wlen = sendto(data_fd, buffer, rlen, 0, (struct sockaddr *)&data_so, sizeof(data_so));
-          #ifdef DBGTS
-            write(dbg_fd, buffer, rlen);
-          #endif
-        }
-      }
-      if(pfd[1].revents & POLLIN) {
         int rlen = read(ctrl_fd, &msg, sizeof(msg));
-        if(rlen<=0) goto cleanup_data;
+        if(rlen<=0) goto cleanup_worker_thread;
         int ret=0;
         if( sizeof(msg) == rlen) {
           ntoh_vtuner_net_message(&msg, session->hw.type);
@@ -275,7 +318,7 @@ void *session_worker(void *data) {
               break;
             default:
               ERROR("unknown vtuner message %d\n", msg.u.vtuner.type);
-              goto cleanup_data;
+              goto cleanup_worker_thread;
           }
 
           if (msg.u.vtuner.type != MSG_PIDLIST ) {
@@ -288,6 +331,11 @@ void *session_worker(void *data) {
         }
       }
     }
+
+    cleanup_worker_thread:
+      dwd.status = DST_EXITING;
+      pthread_join( dwt, NULL);
+      DEBUGMAIN("tsdata_worker thread finished.\n");
 
     cleanup_data:
       close(data_fd);

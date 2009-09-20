@@ -241,13 +241,23 @@ void hton_vtuner_net_message(vtuner_net_message_t* netmsg, vtuner_type_t type) {
         case VT_S:
           DEBUGNETC(" VT_S");
           HTONLc( netmsg->u.vtuner.body.fe_params, u.qpsk.symbol_rate);
+          HTONLc( netmsg->u.vtuner.body.fe_params, u.qpsk.fec_inner);
           break;
         case VT_C:
           DEBUGNETC(" VT_C");
           HTONLc( netmsg->u.vtuner.body.fe_params, u.qam.symbol_rate); 
+          HTONLc( netmsg->u.vtuner.body.fe_params, u.qam.fec_inner);
+          HTONLc( netmsg->u.vtuner.body.fe_params, u.qam.modulation);
           break;
         case VT_T:
           DEBUGNETC(" VT_T");
+          HTONLc( netmsg->u.vtuner.body.fe_params, u.ofdm.bandwidth);
+          HTONLc( netmsg->u.vtuner.body.fe_params, u.ofdm.code_rate_HP);
+          HTONLc( netmsg->u.vtuner.body.fe_params, u.ofdm.code_rate_LP);
+          HTONLc( netmsg->u.vtuner.body.fe_params, u.ofdm.constellation);
+          HTONLc( netmsg->u.vtuner.body.fe_params, u.ofdm.transmission_mode);
+          HTONLc( netmsg->u.vtuner.body.fe_params, u.ofdm.guard_interval);
+          HTONLc( netmsg->u.vtuner.body.fe_params, u.ofdm.hierarchy_information);
 	  break;
 	default:
           WARN("unkown frontend type %d (known types are %d,%d,%d)\n",type,VT_S,VT_C,VT_T);
@@ -323,13 +333,23 @@ void ntoh_vtuner_net_message(vtuner_net_message_t* netmsg, vtuner_type_t type) {
         case VT_S:
           DEBUGNETC(" VT_S");
           NTOHLc( netmsg->u.vtuner.body.fe_params, u.qpsk.symbol_rate);
+          NTOHLc( netmsg->u.vtuner.body.fe_params, u.qpsk.fec_inner);
           break;
         case VT_C:
           DEBUGNETC(" VT_C");
           NTOHLc( netmsg->u.vtuner.body.fe_params, u.qam.symbol_rate);
+          NTOHLc( netmsg->u.vtuner.body.fe_params, u.qam.fec_inner);
+          NTOHLc( netmsg->u.vtuner.body.fe_params, u.qam.modulation);
           break;
         case VT_T:
           DEBUGNETC(" VT_T");
+          NTOHLc( netmsg->u.vtuner.body.fe_params, u.ofdm.bandwidth);
+          NTOHLc( netmsg->u.vtuner.body.fe_params, u.ofdm.code_rate_HP);
+          NTOHLc( netmsg->u.vtuner.body.fe_params, u.ofdm.code_rate_LP);
+          NTOHLc( netmsg->u.vtuner.body.fe_params, u.ofdm.constellation);
+          NTOHLc( netmsg->u.vtuner.body.fe_params, u.ofdm.transmission_mode);
+          NTOHLc( netmsg->u.vtuner.body.fe_params, u.ofdm.guard_interval);
+          NTOHLc( netmsg->u.vtuner.body.fe_params, u.ofdm.hierarchy_information);
           break;
         default:
           WARN("unkown frontend type %d (known types are %d,%d,%d)\n",type,VT_S,VT_C,VT_T);
