@@ -122,6 +122,8 @@ typedef struct vtuner_net_message {
 } vtuner_net_message_t;
 
 #if HAVE_DVB_API_VERSION < 3
+  void get_dvb_frontend_info( FrontendInfo*, vtuner_net_message_t*);
+  void set_dvb_frontend_info( vtuner_net_message_t*, FrontendInfo*);
   void get_dvb_frontend_parameters( FrontendParameters*, vtuner_message_t*, vtuner_type_t);
   void set_dvb_frontend_parameters( vtuner_message_t*, FrontendParameters*, vtuner_type_t); 
 #else

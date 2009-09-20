@@ -11,12 +11,15 @@
 #define DEBUGNHWC(msg, ...)
 #endif
 
+#define MAX_DEMUX 30
+
 typedef struct vtuner_hw {
 
   vtuner_type_t type;
+  FrontendInfo fe_info;
 
   int frontend_fd;
-  int demux_fd;
+  int demux_fd[MAX_DEMUX];
   __u16 pids[30];
   int streaming_fd;
   int sec_fd;
