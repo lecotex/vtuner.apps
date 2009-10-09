@@ -59,6 +59,10 @@ void *tsdata_worker(void *d) {
         if (write(data->out, buf, r) != r) {
           ERROR("write failed - %m");
           data->status = DST_FAILED;
+        } else {
+          // suggested from H2Deetoo to prevent pixelation with
+          // crypted HD DVB-C channels
+          usleep(10*1000);
         }
       }
     }

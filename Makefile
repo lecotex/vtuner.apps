@@ -23,4 +23,4 @@ clean:
 	$(MAKE) -C build/ppc clean
 	$(MAKE) -C build/db2 clean
 	$(MAKE) -C build/mipsel clean
-	$(MAKE) -C build/pkgs clean
+	$(MAKE) -C pkgs clean
