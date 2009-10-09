@@ -1,0 +1,10 @@
+ARCHS=i686 ppc db2 mipsel
+
+CC-i686=gcc
+
+CC-ppc=/stuff/dm600pvr/build/tmp/cross/bin/powerpc-linux-gcc
+INCLUDE-ppc=-I/stuff/dm600pvr/build/tmp/work/dreambox-dvbincludes-1-r0/include 
+
+CC-mipsel=/stuff/dm800/build/tmp/cross/bin/mipsel-linux-gcc
+
+CC-db2=/stuff/dm600pvr/build/tmp/cross/bin/powerpc-linux-gcc
