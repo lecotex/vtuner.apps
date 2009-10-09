@@ -1,10 +1,16 @@
+# define the targets vtuner is built for
 ARCHS=i686 ppc db2 mipsel
 
+# define the CC for target i686
 CC-i686=gcc
 
+# define the CC for target ppc
 CC-ppc=/stuff/dm600pvr/build/tmp/cross/bin/powerpc-linux-gcc
+# extra include path for ppc DVB headers
 INCLUDE-ppc=-I/stuff/dm600pvr/build/tmp/work/dreambox-dvbincludes-1-r0/include 
 
+# define the CC for target mipsel
 CC-mipsel=/stuff/dm800/build/tmp/cross/bin/mipsel-linux-gcc
 
+# define the CC for target db2
 CC-db2=/stuff/dm600pvr/build/tmp/cross/bin/powerpc-linux-gcc
