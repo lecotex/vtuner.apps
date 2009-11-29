@@ -6,6 +6,7 @@
   #include <ost/dmx.h>
   #include <ost/sec.h>
 #else
+  #include <linux/dvb/version.h>
   #include <linux/dvb/frontend.h>
   #include <linux/dvb/dmx.h>
 #endif

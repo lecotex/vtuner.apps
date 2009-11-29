@@ -85,6 +85,20 @@ error:
   return -1;
 } 
 
+void print_frontend_parameters(vtuner_hw_t* hw, struct dvb_frontend_parameters* fe_params, char *msg, size_t msgsize) {
+  switch(hw->type) {
+    case VT_S: snprintf(msg, msgsize, "freq:%d inversion:%d SR:%d FEC:%d\n", \
+                        fe_params->frequency, fe_params->inversion, \
+                        fe_params->u.qpsk.symbol_rate, fe_params->u.qpsk.fec_inner);
+               break;
+    case VT_C: snprintf(msg, msgsize, "freq:%d inversion:%d SR:%d FEC:%d MOD:%d\n", \
+                        fe_params->frequency, fe_params->inversion, \
+                        fe_params->u.qam.symbol_rate, fe_params->u.qam.fec_inner, fe_params->u.qam.modulation);
+               break;
+    case VT_T: break;
+  }
+}
+
 int hw_get_frontend(vtuner_hw_t* hw, struct dvb_frontend_parameters* fe_params) {
   int ret;
   ret = ioctl(hw->frontend_fd, FE_GET_FRONTEND, fe_params);
@@ -94,8 +108,42 @@ int hw_get_frontend(vtuner_hw_t* hw, struct dvb_frontend_parameters* fe_params) 
 
 int hw_set_frontend(vtuner_hw_t* hw, struct dvb_frontend_parameters* fe_params) {
   int ret;
-  ret = ioctl(hw->frontend_fd, FE_SET_FRONTEND, fe_params);
-  if( ret != 0 ) WARN("FE_SET_FRONTEND failed %d\n", hw->frontend_fd);
+  char msg[1024];
+  print_frontend_parameters(hw, fe_params, msg, sizeof(msg));
+  INFO("FE_SET_FRONTEND parameters: %s", msg);
+  #if DVB_API_VERSION < 5 
+    ret = ioctl(hw->frontend_fd, FE_SET_FRONTEND, fe_params);
+  #else
+    struct dtv_property p[] = {
+      { .cmd = DTV_DELIVERY_SYSTEM,   .u.data = SYS_DVBS },
+      { .cmd = DTV_FREQUENCY,         .u.data = fe_params->frequency },
+      { .cmd = DTV_MODULATION,        .u.data = QPSK },
+      { .cmd = DTV_SYMBOL_RATE,       .u.data = fe_params->u.qpsk.symbol_rate },
+      { .cmd = DTV_INNER_FEC,         .u.data = fe_params->u.qpsk.fec_inner },
+      { .cmd = DTV_INVERSION,         .u.data = INVERSION_AUTO },
+      { .cmd = DTV_ROLLOFF,           .u.data = ROLLOFF_AUTO },
+      { .cmd = DTV_PILOT,             .u.data = PILOT_AUTO },
+      { .cmd = DTV_TUNE },
+    };
+    struct dtv_properties cmdseq = {
+      .num = 9,
+      .props = p
+    };
+    if( fe_params->inversion & 0x20 ) {
+      p[0].u.data = SYS_DVBS2;
+      p[2].u.data = PSK_8;
+      switch(fe_params->u.qpsk.fec_inner) {
+        case 18: p[4].u.data = FEC_9_10; break;
+        case 20: p[4].u.data = FEC_2_3; break;
+      }
+      DEBUGHW("DVB-S2 tuning\n");
+    } 
+    ret=ioctl(hw->frontend_fd, FE_SET_PROPERTY, &cmdseq);
+  #endif
+  if( ret != 0 ) WARN("FE_SET_FRONTEND failed %s\n", msg);
+  #if DVB_API_VERSION == 5
+    DEBUGHW("S2API tuning\n");
+  #endif    
   return ret;
 }
 
@@ -140,12 +188,12 @@ int hw_pidlist(vtuner_hw_t* hw, __u16* pidlist) {
   int i,j;
   struct dmx_pes_filter_params flt;
 
-  DEBUGHW("hw_pidlist befor: ");
+  DEBUGHWI("hw_pidlist befor: ");
   for(i=0; i<MAX_DEMUX; ++i) if(hw->pids[i] != 0xffff) DEBUGHWC("%d ", hw->pids[i]);
-  DEBUGHWC("\n");
-  DEBUGHW("hw_pidlist sent:  ");
+  DEBUGHWF("\n");
+  DEBUGHWI("hw_pidlist sent:  ");
   for(i=0; i<MAX_DEMUX; ++i) if(pidlist[i] != 0xffff) DEBUGHWC("%d ", pidlist[i]);
-  DEBUGHWC("\n");
+  DEBUGHWF("\n");
 
   for(i=0; i<MAX_DEMUX; ++i) 
     if(hw->pids[i] != 0xffff) {
@@ -180,9 +228,9 @@ int hw_pidlist(vtuner_hw_t* hw, __u16* pidlist) {
       }
     }
 
-  DEBUGHW("hw_pidlist after: ");
+  DEBUGHWI("hw_pidlist after: ");
   for(i=0; i<MAX_DEMUX; ++i) if(hw->pids[i] != 0xffff) DEBUGHWC("%d ", hw->pids[i]);  
-  DEBUGHWC("\n");
+  DEBUGHWF("\n");
 
   return 0;
 }

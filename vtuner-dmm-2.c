@@ -111,10 +111,10 @@ int hw_get_frontend(vtuner_hw_t* hw, FrontendParameters* fe_params) {
 int hw_set_frontend(vtuner_hw_t* hw, FrontendParameters* fe_params) {
   int ret;
   ret = ioctl(hw->frontend_fd, FE_SET_FRONTEND, fe_params);
-  DEBUGHW("FE_SET_FRONTEND parameters: Freq:%d Inversion: %d", fe_params->Frequency, fe_params->Inversion);
+  DEBUGHWI("FE_SET_FRONTEND parameters: Freq:%d Inversion: %d", fe_params->Frequency, fe_params->Inversion);
   switch(hw->type) {
-    case VT_S: DEBUGHWC(" SymbolRate: %d FEC: %d\n", fe_params->u.qpsk.SymbolRate, fe_params->u.qpsk.FEC_inner); break;
-    case VT_C: DEBUGHWC(" SymbolRate: %d FEC: %d QAM: %d\n", fe_params->u.qam.SymbolRate, fe_params->u.qam.FEC_inner, fe_params->u.qam.QAM); break;
+    case VT_S: DEBUGHWF(" SymbolRate: %d FEC: %d\n", fe_params->u.qpsk.SymbolRate, fe_params->u.qpsk.FEC_inner); break;
+    case VT_C: DEBUGHWF(" SymbolRate: %d FEC: %d QAM: %d\n", fe_params->u.qam.SymbolRate, fe_params->u.qam.FEC_inner, fe_params->u.qam.QAM); break;
     case VT_T: break; //FIXME
   }
  
@@ -188,12 +188,12 @@ int hw_pidlist(vtuner_hw_t* hw, __u16* pidlist) {
   int i,j;
   struct dmxPesFilterParams flt;
 
-  DEBUGHW("hw_pidlist befor: ");
+  DEBUGHWI("hw_pidlist befor: ");
   for(i=0; i<MAX_DEMUX; ++i) if(hw->pids[i] != 0xffff) DEBUGHWC("%d ", hw->pids[i]);
-  DEBUGHWC("\n");
-  DEBUGHW("hw_pidlist sent:  ");
+  DEBUGHWF("\n");
+  DEBUGHWI("hw_pidlist sent:  ");
   for(i=0; i<MAX_DEMUX; ++i) if(pidlist[i] != 0xffff) DEBUGHWC("%d ", pidlist[i]);
-  DEBUGHWC("\n");
+  DEBUGHWF("\n");
 
   for(i=0; i<MAX_DEMUX; ++i)
     if(hw->pids[i] != 0xffff) {
@@ -228,9 +228,9 @@ int hw_pidlist(vtuner_hw_t* hw, __u16* pidlist) {
       }
     }
 
-  DEBUGHW("hw_pidlist after: ");
+  DEBUGHWI("hw_pidlist after: ");
   for(i=0; i<MAX_DEMUX; ++i) if(hw->pids[i] != 0xffff) DEBUGHWC("%d ", hw->pids[i]);
-  DEBUGHWC("\n");
+  DEBUGHWF("\n");
 
   return 0;
 }

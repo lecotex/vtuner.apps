@@ -1,5 +1,5 @@
 Package: vtuner-client
-Version: 0.1-20090914-r1
+Version: 0.1-20091129-r1
 Description: virtual tuner client for DM800/DM8000
 Architecture: mipsel
 Section: extra

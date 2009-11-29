@@ -4,7 +4,9 @@
 #include "vtuner-network.h"
 
 #define DEBUGHW(msg, ...)  write_message(0x0020, "[%d %s:%u] debug: " msg, getpid(), __FILE__, __LINE__, ## __VA_ARGS__)
-#define DEBUGHWC(msg, ...) write_message(0x0020, msg, ## __VA_ARGS__)
+#define DEBUGHWI(msg, ...) init_message("[%d %s:%u] debug: " msg, getpid(), __FILE__, __LINE__, ## __VA_ARGS__)
+#define DEBUGHWC(msg, ...) append_message(msg, ## __VA_ARGS__)
+#define DEBUGHWF(msg, ...) write_message(0x0020, msg, ## __VA_ARGS__)
 
 #ifndef MAX_DEMUX
 #define MAX_DEMUX 30

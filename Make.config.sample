@@ -3,6 +3,7 @@ ARCHS=i686 ppc db2 mipsel
 
 # define the CC for target i686
 CC-i686=gcc
+INCLUDE-i686=
 
 # define the CC for target ppc
 CC-ppc=/stuff/dm600pvr/build/tmp/cross/bin/powerpc-linux-gcc
