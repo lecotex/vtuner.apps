@@ -2,7 +2,7 @@ ARCH=i686
 -include ../../Make.config
 
 CC=$(CC-$(ARCH))
-CFLAGS=-m32 -DHAVE_DVB_API_VERSION=3 $(DBGFLAGS)
+CFLAGS=-m32 -DHAVE_DVB_API_VERSION=3 $(INCLUDE-i686) $(DBGFLAGS)
 LDFLAGS=-lpthread -lrt
 DRIVER=vtuner-dvb-3
 -include ../../Make.rules

@@ -3,12 +3,21 @@
 #include <syslog.h>
 #include <stdarg.h>
 
+#define MAX_MSGSIZE 1024
 #include "vtuner-utils.h"
+
+__thread char msg[MAX_MSGSIZE];
 
 void write_message(int level, const char* fmt, ... ) {
   if( level & dbg_level  ) {
+
+    char tn[MAX_MSGSIZE];
     va_list ap;
     va_start(ap, fmt);
+    vsnprintf(tn, sizeof(tn), fmt, ap);
+    va_end(ap);
+    strncat(msg, tn, sizeof(msg));
+
     if(use_syslog) {
       int priority;
       switch(level) {
@@ -17,10 +26,29 @@ void write_message(int level, const char* fmt, ... ) {
         case 2: priority=LOG_INFO; break;
         default: priority=LOG_DEBUG; break;
       }
-      vsyslog(priority, fmt, ap);
+      syslog(priority, "%s", msg);
     } else {
-      vfprintf(stderr, fmt, ap);
+      fprintf(stderr, "%s", msg);
     }
-    va_end(ap);
   } 
+
+  strncpy(msg, "", sizeof(msg));
 }
+
+void init_message(const char* fmt, ... ) {
+  va_list ap;
+  va_start(ap, fmt);
+  vsnprintf(msg, sizeof(msg), fmt, ap);
+  va_end(ap);
+}
+
+void append_message(const char* fmt, ... ) {
+  char tn[MAX_MSGSIZE]; 
+  va_list ap;
+
+  va_start(ap, fmt);
+  vsnprintf(tn, sizeof(tn), fmt, ap);
+  va_end(ap);
+
+  strncat(msg, tn, sizeof(msg));
+}  

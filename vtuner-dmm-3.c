@@ -101,6 +101,20 @@ error:
   return -1;
 } 
 
+void print_frontend_parameters(vtuner_hw_t* hw, struct dvb_frontend_parameters* fe_params, char *msg, size_t msgsize) {
+  switch(hw->type) {
+    case VT_S: snprintf(msg, msgsize, "freq:%d inversion:%d SR:%d FEC:%d\n", \
+                        fe_params->frequency, fe_params->inversion, \
+                        fe_params->u.qpsk.symbol_rate, fe_params->u.qpsk.fec_inner); 
+               break;
+    case VT_C: snprintf(msg, msgsize, "freq:%d inversion:%d SR:%d FEC:%d MOD:%d\n", \
+                        fe_params->frequency, fe_params->inversion, \
+                        fe_params->u.qam.symbol_rate, fe_params->u.qam.fec_inner, fe_params->u.qam.modulation); 
+               break;
+    case VT_T: break;
+  }
+}
+
 int hw_get_frontend(vtuner_hw_t* hw, struct dvb_frontend_parameters* fe_params) {
   int ret;
   ret = ioctl(hw->frontend_fd, FE_GET_FRONTEND, fe_params);
@@ -110,8 +124,11 @@ int hw_get_frontend(vtuner_hw_t* hw, struct dvb_frontend_parameters* fe_params) 
 
 int hw_set_frontend(vtuner_hw_t* hw, struct dvb_frontend_parameters* fe_params) {
   int ret;
+  char msg[1024];
+  print_frontend_parameters(hw, fe_params, msg, sizeof(msg));
+  INFO("FE_SET_FRONTEND parameters: %s", msg);
   ret = ioctl(hw->frontend_fd, FE_SET_FRONTEND, fe_params);
-  if( ret != 0 ) WARN("FE_SET_FRONTEND failed %d\n", hw->frontend_fd);
+  if( ret != 0 ) WARN("FE_SET_FRONTEND failed %s\n", msg);
   return ret;
 }
 
@@ -154,12 +171,12 @@ int hw_send_diseq_burst(vtuner_hw_t* hw, __u8* pad) {
 int hw_pidlist(vtuner_hw_t* hw, __u16* pidlist) {
   int i,j;
 
-  DEBUGHW("hw_pidlist befor: ");
-  for(i=0; i<30; ++i) DEBUGHWC("%d ", hw->pids[i]);
-  DEBUGHWC("\n");
-  DEBUGHW("hw_pidlist sent:  ");
-  for(i=0; i<30; ++i) DEBUGHWC("%d ", pidlist[i]);
-  DEBUGHWC("\n");
+  DEBUGHWI("hw_pidlist befor: ");
+  for(i=0; i<30; ++i) if(hw->pids[i] != 0xffff) DEBUGHWC("%d ", hw->pids[i]);
+  DEBUGHWF("\n");
+  DEBUGHWI("hw_pidlist sent:  ");
+  for(i=0; i<30; ++i) if(pidlist[i] != 0xffff) DEBUGHWC("%d ", pidlist[i]);
+  DEBUGHWF("\n");
 
   for(i=0; i<30; ++i) 
     if(hw->pids[i] != 0xffff) {
@@ -170,7 +187,7 @@ int hw_pidlist(vtuner_hw_t* hw, __u16* pidlist) {
         if(ioctl(hw->demux_fd, DMX_REMOVE_PID, hw->pids[i]) != 0) {
           WARN("DMX_REMOVE_PID %d failed - %m\n", hw->pids[i]);
         }
-        DEBUGHW("remove pid %d\n", hw->pids[i]);
+//        DEBUGHW("remove pid %d\n", hw->pids[i]);
       }
     }
 
@@ -183,7 +200,7 @@ int hw_pidlist(vtuner_hw_t* hw, __u16* pidlist) {
         if(ioctl(hw->demux_fd, DMX_ADD_PID, pidlist[i]) != 0) {
           WARN("DMX_ADD_PID %d failed - %m\n", pidlist[i]);
         }
-        DEBUGHW("add pid %d\n",  pidlist[i]);
+//        DEBUGHW("add pid %d\n",  pidlist[i]);
       }
     }
 
