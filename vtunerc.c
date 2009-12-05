@@ -21,7 +21,7 @@
 #define VTUNER_SET_FE_INFO 6
 
 int dbg_level =  0x00ff;
-int use_syslog = 0;
+int use_syslog = 1;
 
 #define DEBUGMAIN(msg, ...)  write_message(0x0010, "[%d %s:%u] debug: " msg, getpid(), __FILE__, __LINE__, ## __VA_ARGS__)
 #define DEBUGMAINC(msg, ...) write_message(0x0010, msg, ## __VA_ARGS__)
