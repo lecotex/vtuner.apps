@@ -188,7 +188,7 @@ void *tsdata_worker(void *d) {
     if(pfd[0].revents & POLLIN) {
       int rlen = read(data->in, buffer + bufptr, sizeof(buffer) - bufptr);
       if(rlen>0) bufptr += rlen;
-    }
+    } 
 
     int w = bufptr - bufptr_write;
     clock_gettime(CLOCK_MONOTONIC, &t);
@@ -212,7 +212,7 @@ void *tsdata_worker(void *d) {
   }
 
 error:
-  ERROR("TS data copy thread terminated.\n");
+  INFO("TS data copy thread terminated.\n");
   data->status = DST_ENDED;
 }
 
@@ -223,7 +223,7 @@ void *session_worker(void *data) {
   struct sockaddr_in ctrl_so, data_so;
   socklen_t ctrllen = sizeof(ctrl_so), datalen = sizeof(data_so);
 
-  int listen_fd, ctrl_fd, data_fd;
+  int listen_fd, ctrl_fd;
 
   #if HAVE_DVB_API_VERSION < 3
     FrontendParameters fe_params;
@@ -270,8 +270,9 @@ void *session_worker(void *data) {
       struct pollfd pfd[] = { { ctrl_fd, POLLIN, 0 } };
       if(poll(pfd, 1, 750)==0) {
         // nothing else to do, send current info to client
-      // strang problem with this feature
-      //   fail over isn't working reliable
+        // strang problem with this feature
+        // fail over isn't working reliable
+        /*
         hw_read_status( &session->hw, &msg.u.update.status);
         ioctl(session->hw.frontend_fd, FE_READ_BER, &msg.u.update.ber);
         ioctl(session->hw.frontend_fd, FE_READ_SIGNAL_STRENGTH, &msg.u.update.ss);
@@ -280,7 +281,7 @@ void *session_worker(void *data) {
         msg.msg_type = MSG_UPDATE;
         hton_vtuner_net_message(&msg, session->hw.type);
         write(ctrl_fd, &msg, sizeof(msg));
-      //
+        */
       }  
 
       if(pfd[0].revents & POLLIN) {
@@ -366,10 +367,10 @@ void *session_worker(void *data) {
 
     cleanup_worker_thread:
       dwd.status = DST_EXITING;
+      // FIXME: need a better way to know if thread has finished
+      DEBUGSRV("wait for TS data copy thread to terminate\n");
       pthread_join( dwt, NULL);
-
-    cleanup_data:
-      close(data_fd);
+      DEBUGSRV("TS data copy thread terminated - %m\n");
 
     cleanup_ctrl:
       close(ctrl_fd);
@@ -383,7 +384,7 @@ void *session_worker(void *data) {
 
 error:
   session->status = SST_UNKNOWN;
-
+  INFO("controll thread terminated.\n");
 }
 
 void start_sessions(int nr, vtuner_session_t* sessions) {
