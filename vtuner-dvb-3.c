@@ -50,6 +50,11 @@ int hw_init(vtuner_hw_t* hw, int adapter, int frontend, int demux, int dvr) {
     goto cleanup_fe;
   }
 
+  if( fcntl(hw->streaming_fd, F_SETFL, O_NONBLOCK) != 0) {
+      ERROR("O_NONBLOCK failed for %s\n",devstr);
+      goto cleanup_fe;
+  }
+
   sprintf( devstr, "/dev/dvb/adapter%d/demux%d", hw->adapter, demux);
   for(i=0; i<MAX_DEMUX; ++i) {
     hw->demux_fd[i] = open(devstr, O_RDWR);
