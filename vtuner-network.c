@@ -19,40 +19,6 @@
 
 
 #if HAVE_DVB_API_VERSION < 3
-/*
-  void get_dvb_frontend_info( FrontendInfo* fe_info, vtuner_net_message_t* netmsg) {
-    switch(netmsg->u.discover.fe_info.type) {
-      case VT_S  :
-      case VT_S2 : fe_info->type = FE_QPSK; break;
-      case VT_C  : fe_info->type = FE_QAM; break;
-      case VT_T  : fe_info->type = FE_OFDM; break;
-    }
-    fe_info->minFrequency = netmsg->u.discover.fe_info.frequency_min;
-    fe_info->maxFrequency = netmsg->u.discover.fe_info.frequency_max;
-    fe_info->minSymbolRate = netmsg->u.discover.fe_info.symbol_rate_min;
-    fe_info->maxSymbolRate = netmsg->u.discover.fe_info.symbol_rate_max;
-    fe_info->hwType = 0;
-    fe_info->hwVersion = 0;
-  }
-
-  void set_dvb_frontend_info( vtuner_net_message_t* netmsg, FrontendInfo* fe_info) {
-    memset(netmsg->u.discover.fe_info.name, 0, sizeof(netmsg->u.discover.fe_info.name));
-    switch(fe_info->type) {
-      case FE_QPSK: netmsg->u.discover.fe_info.type = VT_S; break;
-      case FE_QAM:  netmsg->u.discover.fe_info.type = VT_C; break;
-      case FE_OFDM: netmsg->u.discover.fe_info.type = VT_T; break;
-    }
-    netmsg->u.discover.fe_info.frequency_min = fe_info->minFrequency;
-    netmsg->u.discover.fe_info.frequency_max = fe_info->maxFrequency;
-    netmsg->u.discover.fe_info.frequency_stepsize = 0;
-    netmsg->u.discover.fe_info.frequency_tolerance = 0;
-    netmsg->u.discover.fe_info.symbol_rate_min = fe_info->minSymbolRate;
-    netmsg->u.discover.fe_info.symbol_rate_max = fe_info->maxSymbolRate;
-    netmsg->u.discover.fe_info.symbol_rate_tolerance = 0;
-    netmsg->u.discover.fe_info.notifier_delay = 0;
-    netmsg->u.discover.fe_info.caps = 0; //FE_IS_STUPID
-  }
-*/
 
   void get_dvb_frontend_parameters( FrontendParameters* hfe, vtuner_message_t* netmsg, vtuner_type_t type) {
     memset(hfe, 0, sizeof(hfe));
@@ -140,45 +106,6 @@
     }
   }
 #else
-/*
-  void get_dvb_frontend_info( struct dvb_frontend_info* fe_info, vtuner_net_message_t* netmsg) {
-    strncpy(fe_info->name, netmsg->u.discover.fe_info.name, sizeof(fe_info->name));
-    switch(netmsg->u.discover.fe_info.type) {
-      case VT_S  :
-      case VT_S2 : fe_info->type = FE_QPSK; break;
-      case VT_C  : fe_info->type = FE_QAM; break;
-      case VT_T  : fe_info->type = FE_OFDM; break;
-    }
-    fe_info->frequency_min = netmsg->u.discover.fe_info.frequency_min;
-    fe_info->frequency_max = netmsg->u.discover.fe_info.frequency_max;
-    fe_info->frequency_stepsize = netmsg->u.discover.fe_info.frequency_stepsize;
-    fe_info->frequency_tolerance = netmsg->u.discover.fe_info.frequency_tolerance;
-    fe_info->symbol_rate_min = netmsg->u.discover.fe_info.symbol_rate_min;
-    fe_info->symbol_rate_max = netmsg->u.discover.fe_info.symbol_rate_max;
-    fe_info->symbol_rate_tolerance = netmsg->u.discover.fe_info.symbol_rate_tolerance;
-    fe_info->notifier_delay = netmsg->u.discover.fe_info.notifier_delay;
-    fe_info->caps = netmsg->u.discover.fe_info.caps;
-  }
-
-  void set_dvb_frontend_info( vtuner_net_message_t* netmsg, struct dvb_frontend_info* fe_info) {
-    strncpy(netmsg->u.discover.fe_info.name, fe_info->name, sizeof(fe_info->name));
-    switch(fe_info->type) {
-      case FE_QPSK: netmsg->u.discover.fe_info.type = VT_S; break;
-      case FE_QAM:  netmsg->u.discover.fe_info.type = VT_C; break;
-      case FE_OFDM: netmsg->u.discover.fe_info.type = VT_T; break;
-    }
-    netmsg->u.discover.fe_info.frequency_min = fe_info->frequency_min;
-    netmsg->u.discover.fe_info.frequency_max = fe_info->frequency_max;
-    netmsg->u.discover.fe_info.frequency_stepsize = fe_info->frequency_stepsize;
-    netmsg->u.discover.fe_info.frequency_tolerance = fe_info->frequency_tolerance;
-    netmsg->u.discover.fe_info.symbol_rate_min = fe_info->symbol_rate_min;
-    netmsg->u.discover.fe_info.symbol_rate_max = fe_info->symbol_rate_max;
-    netmsg->u.discover.fe_info.symbol_rate_tolerance = fe_info->symbol_rate_tolerance;
-    netmsg->u.discover.fe_info.notifier_delay = fe_info->notifier_delay;
-    netmsg->u.discover.fe_info.caps = fe_info->caps;
-  }
-*/
-
   void get_dvb_frontend_parameters(struct dvb_frontend_parameters* hfe, vtuner_message_t* netmsg, vtuner_type_t type) {
     memset(hfe, 0, sizeof(hfe));
 
