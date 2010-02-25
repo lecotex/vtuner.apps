@@ -4,6 +4,7 @@
 
 #include <sys/ioctl.h>
 #include <sys/socket.h>
+#include <fcntl.h>
 #include <netinet/in.h>
 #include <netinet/tcp.h>
 
@@ -173,41 +174,63 @@ void *tsdata_worker(void *d) {
   data->listen_fd=0;
 
   set_socket_options(out_fd);
-
+ 
   unsigned char buffer[188*696];
   int bufptr = 0, bufptr_write = 0;
 
-  long now, last_written;
+  long long now, last_written;
   struct timespec t;
   clock_gettime(CLOCK_MONOTONIC, &t);
-  last_written = t.tv_sec*1000 + t.tv_nsec/1000000;
+  last_written = (long long)t.tv_sec*1000 + (long long)t.tv_nsec/1000000;
 
   while(data->status == DST_RUNNING) {
-    struct pollfd pfd[] = { { data->in, POLLIN, 0 } };
+    struct pollfd pfd[] = { {data->in, POLLIN, 0} };
     poll(pfd, 1, 50);
     if(pfd[0].revents & POLLIN) {
-      int rlen = read(data->in, buffer + bufptr, sizeof(buffer) - bufptr);
-      if(rlen>0) bufptr += rlen;
+      // 2010-01-30
+      // read can delay writes if too much data is read in one call
+      int rmax = (sizeof(buffer) - bufptr)>32712?32712:(sizeof(buffer) - bufptr);
+      if(rmax == 0) {
+        WARN("no space left in buffer to read data, data loss possible\n");
+      } else {
+        int rlen = read(data->in, buffer + bufptr, rmax);
+        if(rlen>0) bufptr += rlen;
+        // DEBUGSRV("receive buffer stats size:%d, rmax:%d, read:%d\n", sizeof(buffer) - bufptr, rmax, rlen); 
+      }
     } 
-
+    
     int w = bufptr - bufptr_write;
     clock_gettime(CLOCK_MONOTONIC, &t);
-    now = t.tv_sec*1000 + t.tv_nsec/1000000;
-
-    if( w >= 65424 || ( now - last_written > 100 && w>0) ) {
-      if( w > 65424) w = 65424; // cap write to max. udp msg size rounded down to ts
+    now = (long long)t.tv_sec*1000 + (long long)t.tv_nsec/1000000;
+    
+    long long delta = now - last_written;
+    if( w >= 65424 || ( now - last_written > 100 && w > 0) ) {
+      // as tcp is used now, no need to care about max. udp msg size anymore
+      // if( w > 65424) w = 65424; // cap write to max. udp msg size rounded down to ts
       int wlen = write(out_fd,  buffer + bufptr_write, w);
+      // DEBUGSRV("send buffer stats. size:%d, written:%d, delay: %d\n", bufptr - bufptr_write, wlen, delta);
       if(wlen>0) {
         bufptr_write += wlen;
-        last_written = now;
+        // 2010-01-30 do not reset on each write
+        // last_written = now;
       } else {
         data->status = DST_FAILED;
       }
-      if (bufptr_write == bufptr) bufptr_write = bufptr = 0;
+      if (bufptr_write == bufptr) {
+        bufptr_write = bufptr = 0;
+        // 2010-01-30 reset last_writen only if buffer is empty
+        last_written = now;
+      }
       #ifdef DBGTS
         //FIXME
         write(dbg_fd, buffer, rlen);
       #endif
+    } else {
+      // 2010-01-30
+      // if nothing is written, wait a few ms to avoid reading
+      // data in small chunks, max. read chunk is ~32kB
+      // 5ms wait. should give ~6.4MB/s 
+      usleep(5*1000);
     }
   }
 

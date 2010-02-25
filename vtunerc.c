@@ -44,7 +44,13 @@ void *tsdata_worker(void *d) {
 
   data->status = DST_RUNNING;
 
-  char buf[188*384];
+  // 2010-01-30
+  // increased buffer size from 188*384 to 188*4462
+  // this allows 64mbit/s to be transfered with 10 reads/s
+  // increase receive window size as well
+  char buf[188*4462];
+  size_t window_size = sizeof(buf);
+  setsockopt(data->in, SOL_SOCKET, SO_RCVBUF, (char *) &window_size, sizeof(window_size));
 
   while(data->status == DST_RUNNING) {
     struct pollfd pfd[] = { { data->in, POLLIN, 0 } };
@@ -60,9 +66,13 @@ void *tsdata_worker(void *d) {
           ERROR("write failed - %m");
           data->status = DST_FAILED;
         } else {
+          // DEBUGMAIN("receive buffer stats. size:%d, delay:%d\n", r, 0); 
           // suggested from H2Deetoo to prevent pixelation with
           // crypted HD DVB-C channels
-          usleep(10*1000);
+          // 2010-01-30
+          // wait 100 ms instead of 10 to allow a large chunk of 
+          // data to be received in between 
+          usleep(100*1000);
         }
       }
     }
