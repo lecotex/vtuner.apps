@@ -154,6 +154,7 @@ int hw_read_status(vtuner_hw_t* hw, __u32* status) {
 
 int hw_set_tone(vtuner_hw_t* hw, __u8 tone) {
   int ret=0;
+  DEBUGHW("SEC_SET_TONE %d\n", tone);
   ret = ioctl(hw->sec_fd, SEC_SET_TONE, tone);
   if( ret != 0 ) WARN("SEC_SET_TONE failed - %m\n");
   return ret;
@@ -169,6 +170,7 @@ int hw_set_voltage(vtuner_hw_t* hw, __u8 voltage) {
   else if( voltage == 1 ) {
     vt = SEC_VOLTAGE_18;
   }
+  DEBUGHW("SEC_SET_VOLTAGE %d\n", vt);
   ret = ioctl(hw->sec_fd, SEC_SET_VOLTAGE, &vt);
   if( ret != 0 ) WARN("SEC_SET_VOLTAGE failed - %m\n");
   return ret;
