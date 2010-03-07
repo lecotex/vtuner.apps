@@ -1,10 +1,13 @@
 Package: vtuner-client
-Version: 0.1-20100225-r1
-Description: virtual tuner client for DM800/DM8000
+Version: 0.1-20100307-r0
+Description: virtual tuner client for DM800/DM8000/DM500HD
 Architecture: mipsel
 Section: extra
 Priority: optional
 Maintainer: rmie <rmie@gmx.de>
 Homepage: http://www.i-have-a-dreambox.com/wbb2/thread.php?threadid=116365
-Depends: dreambox-dvb-modules (>= 2.6.12-5.1-brcmstb-dm800-20090820-r0)
+#Depends: dreambox-dvb-modules (>= 2.6.12-5.1-brcmstb-dm800-20090820-r0) 
+#Depends: dreambox-dvb-modules (>= 2.6.12-5.1-brcmstb-dm500hd-20100127-r0)
+#Depends: dreambox-dvb-modules (>= 2.6.12-5.1-brcmstb-dm8000-20090820-r0)
+Depends: dreambox-dvb-modules
 Source: http://www.i-have-a-dreambox.com/wbb2/thread.php?threadid=116365
