@@ -1,4 +1,4 @@
-vtunerd-$(ARCH): ../../vtunerd.c vtunerd-service.o vtuner-network.o vtuner-utils.o $(DRIVER).o
+../../dist/$(ARCH)/vtunerd.$(ARCH): ../../vtunerd.c vtunerd-service.o vtuner-network.o vtuner-utils.o $(DRIVER).o
 	$(CC) $(CFLAGS) $(LDFLAGS) -o ../../dist/$(ARCH)/vtunerd.$(ARCH) vtuner-network.o vtunerd-service.o $(DRIVER).o vtuner-utils.o ../../vtunerd.c
 
 vtunerd-service.o: ../../vtunerd-service.c ../../vtunerd-service.h
@@ -11,5 +11,6 @@ vtuner-utils.o: ../../vtuner-utils.c ../../vtuner-utils.h
 	$(CC) $(CFLAGS) -c -o vtuner-utils.o ../../vtuner-utils.c
 	
 clean:
-	rm -rf *.o
+	rm -rf *.o *.so
 	rm -f ../../dist/$(ARCH)/vtunerd.$(ARCH)
+	rm -f ../../dist/$(ARCH)/vtunerc.$(ARCH)

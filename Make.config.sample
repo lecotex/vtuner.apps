@@ -12,6 +12,10 @@ INCLUDE-ppc=-I/stuff/dm600pvr/build/tmp/work/dreambox-dvbincludes-1-r0/include
 
 # define the CC for target mipsel
 CC-mipsel=/stuff/dm800/build/tmp/cross/bin/mipsel-linux-gcc
+CPP-mipsel=/stuff/dm800/build/tmp/cross/bin/mipsel-linux-g++ 
+# define some extra options to compile shared library for vtunerd enigma plugin
+PLUGIN_CFLAGS-mipsel=-I/stuff/dm800/build/tmp/staging/mipsel-linux/include/enigma2 -I/stuff/dm800/build/tmp/staging/mipsel-linux/include/sigc++-1.2 -I/stuff/dm800/build/tmp/staging/mipsel-linux/lib/sigc++-1.2/include -I/stuff/dm800/build/tmp/staging/mipsel-linux/include/python2.5
+PLUGIN_LDFLAGS-mipsel=-shared -Wl,-soname,vtunerdservice.so
 
 # define the CC for target db2
 CC-db2=/stuff/dm600pvr/build/tmp/cross/bin/powerpc-linux-gcc
