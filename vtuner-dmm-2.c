@@ -171,7 +171,7 @@ int hw_set_voltage(vtuner_hw_t* hw, __u8 voltage) {
     vt = SEC_VOLTAGE_18;
   }
   DEBUGHW("SEC_SET_VOLTAGE %d\n", vt);
-  ret = ioctl(hw->sec_fd, SEC_SET_VOLTAGE, &vt);
+  ret = ioctl(hw->sec_fd, SEC_SET_VOLTAGE, vt);
   if( ret != 0 ) WARN("SEC_SET_VOLTAGE failed - %m\n");
   return ret;
 }

@@ -1,4 +1,10 @@
 ------------------------------------------------------------------------
+r46 
+
+H/V switch didn't work on E1 server boxes
+This has been fixed in vtuner-dmm-2.c
+
+------------------------------------------------------------------------
 r45 
 
 added changelog to make it easier to track changes for users not using SVN
