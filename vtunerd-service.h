@@ -35,7 +35,8 @@ typedef struct vtuner_session {
 } vtuner_session_t;
 
 #define DEBUGSRV(msg, ...)  write_message(0x0040, "[%d %s:%u] debug: " msg, getpid(), __FILE__, __LINE__, ## __VA_ARGS__)
-#define DEBUGSRVC(msg, ...) write_message(0x0040, msg, ## __VA_ARGS__)
+#define DEBUGSRVI(msg, ...) init_message((0x0040, "[%d %s:%u] debug: " msg, getpid(), __FILE__, __LINE__, ## __VA_ARGS__)
+#define DEBUGSRVC(msg, ...) append_message(0x0040, msg, ## __VA_ARGS__)
 
 void *discover_worker(void*);
 void start_sessions(int, vtuner_session_t*);

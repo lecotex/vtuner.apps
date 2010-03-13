@@ -24,6 +24,8 @@ typedef struct vtuner_hw {
   int adapter;
   int frontend;
   int demux;
+
+  struct secCmdSequence sec_cmd;
 } vtuner_hw_t;
 
 int hw_init(vtuner_hw_t*, int, int, int, int);
@@ -32,8 +34,8 @@ int hw_set_frontend(vtuner_hw_t*, FrontendParameters*);
 int hw_read_status(vtuner_hw_t*, __u32*);
 int hw_set_tone(vtuner_hw_t*, __u8);
 int hw_set_voltage(vtuner_hw_t*, __u8);
-int hw_send_diseq_msg(vtuner_hw_t*, __u8*);
-int hw_send_diseq_burst(vtuner_hw_t*, __u8*);
+int hw_send_diseq_msg(vtuner_hw_t*, diseqc_master_cmd_t*);
+int hw_send_diseq_burst(vtuner_hw_t*, __u8);
 int hw_pidlist(vtuner_hw_t*, __u16*);
 
 #endif
