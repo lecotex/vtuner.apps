@@ -359,14 +359,13 @@ void *session_worker(void *data) {
               break;
             case MSG_SEND_DISEQC_MSG: {
               int i;
-              ret=hw_send_diseq_msg( &session->hw, msg.u.vtuner.body.pad);
-              DEBUGSRV("MSG_SEND_DISEQC_MSG: ");for(i=0;i<30;++i) DEBUGSRVC(" %x", msg.u.vtuner.body.pad[i]); DEBUGSRVC("\n");
+              ret=hw_send_diseq_msg( &session->hw, &msg.u.vtuner.body.diseqc_master_cmd);
               break;
             }
             case MSG_SEND_DISEQC_BURST: {
               int i;
-              ret=hw_send_diseq_burst( &session->hw, msg.u.vtuner.body.pad);
-              DEBUGSRV("MSG_SEND_DISEQC_BURST: ");for(i=0;i<30;++i) DEBUGSRVC(" %x", msg.u.vtuner.body.pad[i]); DEBUGSRVC("\n");
+              ret=hw_send_diseq_burst( &session->hw, msg.u.vtuner.body.burst);
+              DEBUGSRV("MSG_SEND_DISEQC_BURST: %d\n", msg.u.vtuner.body.burst);
               break;
             }
             case MSG_PIDLIST:

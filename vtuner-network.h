@@ -45,6 +45,11 @@ typedef enum vtuner_type {
 #define DEBUGNET(msg, ...)  write_message(0x0100, "[%d %s:%u] debug: " msg, getpid(), __FILE__, __LINE__, ## __VA_ARGS__)
 #define DEBUGNETC(msg, ...) write_message(0x0100, msg, ## __VA_ARGS__)
 
+typedef struct diseqc_master_cmd {
+	__u8 msg [6];
+	__u8 msg_len;
+} diseqc_master_cmd_t;
+
 typedef struct vtuner_message {
         __s32 type;
         union {
@@ -81,6 +86,7 @@ typedef struct vtuner_message {
                 __u32 ucb;
                 __u8 tone;
                 __u8 voltage;
+		diseqc_master_cmd_t diseqc_master_cmd;
                 __u8 burst;
                 __u16 pidlist[30];
                 __u8  pad[60];

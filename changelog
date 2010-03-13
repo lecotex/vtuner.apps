@@ -1,4 +1,9 @@
 ------------------------------------------------------------------------
+r47
+
+implemented DISEQC for ppc platform (E1 Boxes), yet untested
+
+------------------------------------------------------------------------
 r46 
 
 H/V switch didn't work on E1 server boxes

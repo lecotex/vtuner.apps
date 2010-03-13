@@ -154,8 +154,9 @@ int hw_read_status(vtuner_hw_t* hw, __u32* status) {
 
 int hw_set_tone(vtuner_hw_t* hw, __u8 tone) {
   int ret=0;
-  DEBUGHW("SEC_SET_TONE %d\n", tone);
-  ret = ioctl(hw->sec_fd, SEC_SET_TONE, tone);
+  hw->sec_cmd.continuousTone = tone;
+  DEBUGHW("SEC_SET_TONE %d\n", hw->sec_cmd.continuousTone);
+  ret = ioctl(hw->sec_fd, SEC_SET_TONE, hw->sec_cmd.continuousTone);
   if( ret != 0 ) WARN("SEC_SET_TONE failed - %m\n");
   return ret;
 }
@@ -163,27 +164,57 @@ int hw_set_tone(vtuner_hw_t* hw, __u8 tone) {
 int hw_set_voltage(vtuner_hw_t* hw, __u8 voltage) {
   int ret=0;
 
-  secVoltage vt = SEC_VOLTAGE_OFF;
+  hw->sec_cmd.voltage = SEC_VOLTAGE_OFF;
   if( voltage == 0 ) {
-    vt = SEC_VOLTAGE_13;
+    hw->sec_cmd.voltage = SEC_VOLTAGE_13;
   }
   else if( voltage == 1 ) {
-    vt = SEC_VOLTAGE_18;
+    hw->sec_cmd.voltage = SEC_VOLTAGE_18;
   }
-  DEBUGHW("SEC_SET_VOLTAGE %d\n", vt);
-  ret = ioctl(hw->sec_fd, SEC_SET_VOLTAGE, vt);
+  DEBUGHW("SEC_SET_VOLTAGE %d\n", hw->sec_cmd.voltage);
+  ret = ioctl(hw->sec_fd, SEC_SET_VOLTAGE, hw->sec_cmd.voltage);
   if( ret != 0 ) WARN("SEC_SET_VOLTAGE failed - %m\n");
   return ret;
 }
 
-int hw_send_diseq_msg(vtuner_hw_t* hw, __u8* pad) {
-  WARN("MSG_SEND_DISEQC_MSG not implemented\n");
-  return(-1);
+int hw_send_diseq_msg(vtuner_hw_t* hw, diseqc_master_cmd_t* cmd) {
+  int ret=0;
+
+  struct secCommand c;
+  hw->sec_cmd.miniCommand = SEC_MINI_NONE;
+  hw->sec_cmd.numCommands = 1;
+  hw->sec_cmd.commands = &c;
+
+  c.type = SEC_CMDTYPE_DISEQC;
+  c.u.diseqc.cmdtype = cmd->msg[0];
+  c.u.diseqc.addr = cmd->msg[1];
+  c.u.diseqc.cmd = cmd->msg[2];
+  c.u.diseqc.params[0] = cmd->msg[3]; 
+  c.u.diseqc.params[1] = cmd->msg[4];
+  c.u.diseqc.params[2] = cmd->msg[5];
+  c.u.diseqc.numParams = cmd->msg_len - 3;
+
+  DEBUGHW("MSG_SEND_DISEQC_MSG type:%x addr:%x cmd:%x numparams:%d params:%x %x %x\n", c.u.diseqc.cmdtype, c.u.diseqc.addr, c.u.diseqc.cmd, c.u.diseqc.numParams, c.u.diseqc.params[0], c.u.diseqc.params[1], c.u.diseqc.params[2]);
+
+  ret = ioctl(hw->sec_fd, SEC_SEND_SEQUENCE, hw->sec_cmd); 
+  if( ret != 0 ) WARN("SEC_SEND_SEQUENCE failed - %m\n");
+  return(ret);
 }
 
-int hw_send_diseq_burst(vtuner_hw_t* hw, __u8* pad) {
-  WARN("MSG_SEND_DISEQC_BURST not implemented\n");
-  return(-1);
+int hw_send_diseq_burst(vtuner_hw_t* hw, __u8 burst) {
+  int ret=0;
+
+  if( burst == 0 ) {
+    hw->sec_cmd.miniCommand = SEC_MINI_A;
+  } else {
+    hw->sec_cmd.miniCommand = SEC_MINI_B;
+  }
+  hw->sec_cmd.numCommands = 0;
+  hw->sec_cmd.commands = NULL;
+
+  ret = ioctl(hw->sec_fd, SEC_SEND_SEQUENCE, hw->sec_cmd); 
+  if( ret != 0 ) WARN("SEC_SEND_SEQUENCE failed - %m\n");
+  return(ret);
 }
 
 int hw_pidlist(vtuner_hw_t* hw, __u16* pidlist) {
