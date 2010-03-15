@@ -121,7 +121,9 @@ tar -C $pkg_dir/$CONTROL -czf $tmp_dir/control.tar.gz .
 echo "2.0" > $tmp_dir/debian-binary
 
 pkg_file=$dest_dir/${pkg}_${version}_${arch}.ipk
-tar -C $tmp_dir -czf $pkg_file ./debian-binary ./data.tar.gz ./control.tar.gz
+# tar -C $tmp_dir -czf $pkg_file ./debian-binary ./data.tar.gz ./control.tar.gz
+(cd $tmp_dir; ar -q $pkg_file ./debian-binary ./data.tar.gz ./control.tar.gz)
+mv $tmp_dir/$pkg_file . 
 rm $tmp_dir/debian-binary $tmp_dir/data.tar.gz $tmp_dir/control.tar.gz
 rmdir $tmp_dir
 
