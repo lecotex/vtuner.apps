@@ -258,6 +258,32 @@ int main(int argc, char **argv) {
   }
   INFO("Simulating a %s tuner\n", ctype); 
 
+  int f;
+  f = open("/proc/stb/info/model",O_RDONLY);
+  if(f>0) {
+
+    char model[20];
+    read(f, &model, sizeof(model));
+    close(f);
+    INFO("Box is a %s", model);
+
+/*
+ *  ACF0 seems to be ok for SD, but kills sound on most HD channels for me
+    if(strcmp(model, "dm500hd")) {
+      char delay[5] = "ACF0";
+      INFO("DM500HD found. increase AV delay to avoid sound problem (%s).\n", delay);
+
+      f = open("/proc/stb/vmpeg/0/pts_offset", O_RDWR);
+      write(f, delay, sizeof(delay));
+      close(f);
+
+      f = open("/proc/stb/audio/pts_offset", O_RDWR);
+      write(f, delay, sizeof(delay));
+      close(f);
+    }
+*/
+  }
+
   if (ioctl(vtuner_control, VTUNER_SET_TYPE, ctype)) {
     ERROR("VTUNER_SET_TYPE failed - %m\n");
     exit(1);

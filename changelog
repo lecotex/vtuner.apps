@@ -1,4 +1,11 @@
 ------------------------------------------------------------------------
+r48
+
+minor change to vtunerc. added hardware dentification to
+set hw specific options. not used yet, as no good parameters for dm500hd 
+are known.
+
+------------------------------------------------------------------------
 r47
 
 implemented DISEQC for ppc platform (E1 Boxes), yet untested
