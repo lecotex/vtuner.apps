@@ -189,10 +189,10 @@ int hw_send_diseq_msg(vtuner_hw_t* hw, diseqc_master_cmd_t* cmd) {
   c.u.diseqc.cmdtype = cmd->msg[0];
   c.u.diseqc.addr = cmd->msg[1];
   c.u.diseqc.cmd = cmd->msg[2];
-  c.u.diseqc.params[0] = cmd->msg[3]; 
-  c.u.diseqc.params[1] = cmd->msg[4];
-  c.u.diseqc.params[2] = cmd->msg[5];
   c.u.diseqc.numParams = cmd->msg_len - 3;
+  c.u.diseqc.params[0] = c.u.diseqc.numParams > 0 ? cmd->msg[3] : 0;
+  c.u.diseqc.params[1] = c.u.diseqc.numParams > 1 ? cmd->msg[4] : 0;
+  c.u.diseqc.params[2] = c.u.diseqc.numParams > 2 ? cmd->msg[5] : 0;
 
   DEBUGHW("MSG_SEND_DISEQC_MSG type:%x addr:%x cmd:%x numparams:%d params:%x %x %x\n", c.u.diseqc.cmdtype, c.u.diseqc.addr, c.u.diseqc.cmd, c.u.diseqc.numParams, c.u.diseqc.params[0], c.u.diseqc.params[1], c.u.diseqc.params[2]);
 

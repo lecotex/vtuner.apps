@@ -1,4 +1,16 @@
 ------------------------------------------------------------------------
+r50
+
+minor fixup to set unused bytes to zero in DISEQC message
+
+------------------------------------------------------------------------
+r49 | rmie | 2010-03-15 22:34:19 +0100 (Mon, 15 Mar 2010) | 4 lines
+
+improved ipkg build script as suggested by Sat_Man, using ar instead of tar                                                                                                                                                                                                    
+likely to solve problems with OE1.6 as well              
+
+
+------------------------------------------------------------------------
 r48
 
 minor change to vtunerc. added hardware dentification to
