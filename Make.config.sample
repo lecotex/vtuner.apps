@@ -19,3 +19,6 @@ PLUGIN_LDFLAGS-mipsel=-shared -Wl,-soname,vtunerdservice.so
 
 # define the CC for target db2
 CC-db2=/stuff/dm600pvr/build/tmp/cross/bin/powerpc-linux-gcc
+
+# define the CC for target sh4
+CC-sh4=/opt/STM/STLinux-2.3/devkit/sh4/bin/sh4-linux-gcc

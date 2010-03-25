@@ -1,4 +1,10 @@
 ------------------------------------------------------------------------
+r54
+
+added sh4 target platform
+can't test this myself, pls. report both bug's and success
+
+------------------------------------------------------------------------
 r53
 
 removed dist/mipsel/vtuner-client_0.1-20100307-r1_mipsel.ipk
