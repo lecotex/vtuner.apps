@@ -1,4 +1,11 @@
 ------------------------------------------------------------------------
+r52
+
+bugfix for i686 platform
+DVB-C/T tuning was broken since I added S2API support
+reverted back to old style API for DVB-C/T
+
+------------------------------------------------------------------------
 r51
 
 improved debug messages

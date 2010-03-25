@@ -119,59 +119,73 @@ int hw_set_frontend(vtuner_hw_t* hw, struct dvb_frontend_parameters* fe_params) 
   #if DVB_API_VERSION < 5 
     ret = ioctl(hw->frontend_fd, FE_SET_FRONTEND, fe_params);
   #else
-    struct dtv_property p[] = {
-      { .cmd = DTV_DELIVERY_SYSTEM,   .u.data = SYS_DVBS },
-      { .cmd = DTV_FREQUENCY,         .u.data = fe_params->frequency },
-      { .cmd = DTV_MODULATION,        .u.data = QPSK },
-      { .cmd = DTV_SYMBOL_RATE,       .u.data = fe_params->u.qpsk.symbol_rate },
-      { .cmd = DTV_INNER_FEC,         .u.data = fe_params->u.qpsk.fec_inner },
-      { .cmd = DTV_INVERSION,         .u.data = INVERSION_AUTO },
-      { .cmd = DTV_ROLLOFF,           .u.data = ROLLOFF_AUTO },
-      { .cmd = DTV_PILOT,             .u.data = PILOT_AUTO },
-      { .cmd = DTV_TUNE },
-    };
     struct dtv_properties cmdseq = {
-      .num = 9,
-      .props = p
+      .num = 0,
+      .props = NULL
     };
-    if( fe_params->u.qpsk.fec_inner > FEC_AUTO) {
-      p[0].u.data = SYS_DVBS2;
-      switch( fe_params->u.qpsk.fec_inner ) {
-        case 19: p[2].u.data = PSK_8;
-        case 10: p[4].u.data = FEC_1_2 ; break;
-        case 20: p[2].u.data = PSK_8;
-        case 11: p[4].u.data = FEC_2_3 ; break;
-        case 21: p[2].u.data = PSK_8;
-        case 12: p[4].u.data = FEC_3_4 ; break;
-        case 22: p[2].u.data = PSK_8;
-        case 13: p[4].u.data = FEC_5_6 ; break;
-        case 23: p[2].u.data = PSK_8;
-        case 14: p[4].u.data = FEC_7_8 ; break;
-        case 24: p[2].u.data = PSK_8;
-        case 15: p[4].u.data = FEC_8_9 ; break;
-        case 25: p[2].u.data = PSK_8;
-        case 16: p[4].u.data = FEC_3_5 ; break;
-        case 26: p[2].u.data = PSK_8;
-        case 17: p[4].u.data = FEC_4_5 ; break;
-        case 27: p[2].u.data = PSK_8;
-        case 18: p[4].u.data = FEC_9_10; break;
+
+    switch(hw->type) { 
+      case VT_S:
+      case VT_S2: {
+        struct dtv_property S[] = {
+          { .cmd = DTV_DELIVERY_SYSTEM,   .u.data = SYS_DVBS },
+          { .cmd = DTV_FREQUENCY,         .u.data = fe_params->frequency },
+          { .cmd = DTV_MODULATION,        .u.data = QPSK },
+          { .cmd = DTV_SYMBOL_RATE,       .u.data = fe_params->u.qpsk.symbol_rate },
+          { .cmd = DTV_INNER_FEC,         .u.data = fe_params->u.qpsk.fec_inner },
+          { .cmd = DTV_INVERSION,         .u.data = INVERSION_AUTO },
+          { .cmd = DTV_ROLLOFF,           .u.data = ROLLOFF_AUTO },
+          { .cmd = DTV_PILOT,             .u.data = PILOT_AUTO },
+          { .cmd = DTV_TUNE },
+        };
+        cmdseq.num = 9;
+        cmdseq.props = S;
+
+        if( ( hw->type == VT_S || hw->type == VT_S2) &&  fe_params->u.qpsk.fec_inner > FEC_AUTO) {
+          cmdseq.props[0].u.data = SYS_DVBS2;
+          switch( fe_params->u.qpsk.fec_inner ) {
+            case 19: cmdseq.props[2].u.data = PSK_8;
+            case 10: cmdseq.props[4].u.data = FEC_1_2 ; break;
+            case 20: cmdseq.props[2].u.data = PSK_8;
+            case 11: cmdseq.props[4].u.data = FEC_2_3 ; break;
+            case 21: cmdseq.props[2].u.data = PSK_8;
+            case 12: cmdseq.props[4].u.data = FEC_3_4 ; break;
+            case 22: cmdseq.props[2].u.data = PSK_8;
+            case 13: cmdseq.props[4].u.data = FEC_5_6 ; break;
+            case 23: cmdseq.props[2].u.data = PSK_8;
+            case 14: cmdseq.props[4].u.data = FEC_7_8 ; break;
+            case 24: cmdseq.props[2].u.data = PSK_8;
+            case 15: cmdseq.props[4].u.data = FEC_8_9 ; break;
+            case 25: cmdseq.props[2].u.data = PSK_8;
+            case 16: cmdseq.props[4].u.data = FEC_3_5 ; break;
+            case 26: cmdseq.props[2].u.data = PSK_8;
+            case 17: cmdseq.props[4].u.data = FEC_4_5 ; break;
+            case 27: cmdseq.props[2].u.data = PSK_8;
+            case 18: cmdseq.props[4].u.data = FEC_9_10; break;
+          }
+          switch( fe_params->inversion & 0x0c ) {
+            case 0: cmdseq.props[6].u.data = ROLLOFF_35; break;
+            case 4: cmdseq.props[6].u.data = ROLLOFF_25; break;
+            case 8: cmdseq.props[6].u.data = ROLLOFF_20; break;
+            default: WARN("ROLLOFF unknnown\n");
+          }
+          switch( fe_params->inversion & 0x30 ) {
+            case 0:    cmdseq.props[7].u.data = PILOT_OFF;  break;
+            case 0x10: cmdseq.props[7].u.data = PILOT_ON;   break;
+            case 0x20: cmdseq.props[7].u.data = PILOT_AUTO; break;
+            default: WARN("PILOT unknown\n");
+          }
+          cmdseq.props[5].u.data &= 0x04;
+        }
+        DEBUGHW("S2API tuning SYS:%d MOD:%d FEC:%d INV:%d ROLLOFF:%d PILOT:%d\n", cmdseq.props[0].u.data, cmdseq.props[2].u.data, cmdseq.props[4].u.data, cmdseq.props[5].u.data, cmdseq.props[6].u.data, cmdseq.props[7].u.data);
+        ret=ioctl(hw->frontend_fd, FE_SET_PROPERTY, &cmdseq);
+        break;
       }
-      switch( fe_params->inversion & 0x0c ) {
-        case 0: p[6].u.data = ROLLOFF_35; break;
-        case 4: p[6].u.data = ROLLOFF_25; break;
-        case 8: p[6].u.data = ROLLOFF_20; break;
-        default: WARN("ROLLOFF unknnown\n");
-      }
-      switch( fe_params->inversion & 0x30 ) {
-        case 0:    p[7].u.data = PILOT_OFF;  break;
-        case 0x10: p[7].u.data = PILOT_ON;   break;
-        case 0x20: p[7].u.data = PILOT_AUTO; break;
-        default: WARN("PILOT unknown\n");
-      }
-      p[5].u.data &= 0x04;
+      VT_C:
+      VT_T:  // even If we would have S2API, the old is sufficent to tune
+        ret = ioctl(hw->frontend_fd, FE_SET_FRONTEND, fe_params); 
+        break;
     }
-    DEBUGHW("S2API tuning SYS:%d MOD:%d FEC:%d INV:%d ROLLOFF:%d PILOT:%d\n", p[0].u.data, p[2].u.data, p[4].u.data, p[5].u.data, p[6].u.data, p[7].u.data);
-    ret=ioctl(hw->frontend_fd, FE_SET_PROPERTY, &cmdseq);
   #endif
   if( ret != 0 ) WARN("FE_SET_FRONTEND failed %s\n", msg);
   return ret;
