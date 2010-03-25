@@ -290,7 +290,7 @@ int main(int argc, char **argv) {
   }
 
   if (ioctl(vtuner_control, VTUNER_SET_FE_INFO, vtuner_info)) {
-    ERROR("VTUNER_SET_NAME failed - %m\n");
+    ERROR("VTUNER_SET_FE_INFO failed - %m\n");
     exit(1);
   }
 

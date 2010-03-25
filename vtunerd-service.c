@@ -355,17 +355,18 @@ void *session_worker(void *data) {
               break;
             case MSG_ENABLE_HIGH_VOLTAGE:
               //FIXME: need to know how information is passed to client
-              WARN("MSG_ENABLE_HIGH_VOLTAGE is not implemented\n");
+              WARN("MSG_ENABLE_HIGH_VOLTAGE is not implemented: %d\n", msg.u.vtuner.body.pad[0]);
               break;
             case MSG_SEND_DISEQC_MSG: {
               int i;
               ret=hw_send_diseq_msg( &session->hw, &msg.u.vtuner.body.diseqc_master_cmd);
+              DEBUGSRV("MSG_SEND_DISEQC_MSG: \n");
               break;
             }
             case MSG_SEND_DISEQC_BURST: {
               int i;
-              ret=hw_send_diseq_burst( &session->hw, msg.u.vtuner.body.burst);
               DEBUGSRV("MSG_SEND_DISEQC_BURST: %d\n", msg.u.vtuner.body.burst);
+              ret=hw_send_diseq_burst( &session->hw, msg.u.vtuner.body.burst);
               break;
             }
             case MSG_PIDLIST:
