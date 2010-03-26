@@ -92,6 +92,7 @@ error:
 
 void print_frontend_parameters(vtuner_hw_t* hw, struct dvb_frontend_parameters* fe_params, char *msg, size_t msgsize) {
   switch(hw->type) {
+    case VT_S2:
     case VT_S: snprintf(msg, msgsize, "freq:%d inversion:%d SR:%d FEC:%d\n", \
                         fe_params->frequency, fe_params->inversion, \
                         fe_params->u.qpsk.symbol_rate, fe_params->u.qpsk.fec_inner);
@@ -100,14 +101,17 @@ void print_frontend_parameters(vtuner_hw_t* hw, struct dvb_frontend_parameters* 
                         fe_params->frequency, fe_params->inversion, \
                         fe_params->u.qam.symbol_rate, fe_params->u.qam.fec_inner, fe_params->u.qam.modulation);
                break;
-    case VT_T: break;
+    case VT_T: snprintf(msg, msgsize, "freq:%d inversion:%d BW:%d CRHP:%d CRLP:%d\n", \
+                        fe_params->frequency, fe_params->inversion, \
+                        fe_params->u.ofdm.bandwidth, fe_params->u.ofdm.code_rate_HP, fe_params->u.ofdm.code_rate_LP ); 
+               break;
   }
 }
 
 int hw_get_frontend(vtuner_hw_t* hw, struct dvb_frontend_parameters* fe_params) {
   int ret;
   ret = ioctl(hw->frontend_fd, FE_GET_FRONTEND, fe_params);
-  if( ret != 0 ) WARN("FE_GET_FRONTEND failed\n");
+  if( ret != 0 ) WARN("FE_GET_FRONTEND failed - %m\n");
   return ret;
 }
 
@@ -124,23 +128,23 @@ int hw_set_frontend(vtuner_hw_t* hw, struct dvb_frontend_parameters* fe_params) 
       .props = NULL
     };
 
+    struct dtv_property S[] = {
+      { .cmd = DTV_DELIVERY_SYSTEM,   .u.data = SYS_DVBS },
+      { .cmd = DTV_FREQUENCY,         .u.data = fe_params->frequency },
+      { .cmd = DTV_MODULATION,        .u.data = QPSK },
+      { .cmd = DTV_SYMBOL_RATE,       .u.data = fe_params->u.qpsk.symbol_rate },
+      { .cmd = DTV_INNER_FEC,         .u.data = fe_params->u.qpsk.fec_inner },
+      { .cmd = DTV_INVERSION,         .u.data = INVERSION_AUTO },
+      { .cmd = DTV_ROLLOFF,           .u.data = ROLLOFF_AUTO },
+      { .cmd = DTV_PILOT,             .u.data = PILOT_AUTO },
+      { .cmd = DTV_TUNE },
+    };
+
     switch(hw->type) { 
       case VT_S:
       case VT_S2: {
-        struct dtv_property S[] = {
-          { .cmd = DTV_DELIVERY_SYSTEM,   .u.data = SYS_DVBS },
-          { .cmd = DTV_FREQUENCY,         .u.data = fe_params->frequency },
-          { .cmd = DTV_MODULATION,        .u.data = QPSK },
-          { .cmd = DTV_SYMBOL_RATE,       .u.data = fe_params->u.qpsk.symbol_rate },
-          { .cmd = DTV_INNER_FEC,         .u.data = fe_params->u.qpsk.fec_inner },
-          { .cmd = DTV_INVERSION,         .u.data = INVERSION_AUTO },
-          { .cmd = DTV_ROLLOFF,           .u.data = ROLLOFF_AUTO },
-          { .cmd = DTV_PILOT,             .u.data = PILOT_AUTO },
-          { .cmd = DTV_TUNE },
-        };
         cmdseq.num = 9;
         cmdseq.props = S;
-
         if( ( hw->type == VT_S || hw->type == VT_S2) &&  fe_params->u.qpsk.fec_inner > FEC_AUTO) {
           cmdseq.props[0].u.data = SYS_DVBS2;
           switch( fe_params->u.qpsk.fec_inner ) {
@@ -181,13 +185,15 @@ int hw_set_frontend(vtuner_hw_t* hw, struct dvb_frontend_parameters* fe_params) 
         ret=ioctl(hw->frontend_fd, FE_SET_PROPERTY, &cmdseq);
         break;
       }
-      VT_C:
-      VT_T:  // even If we would have S2API, the old is sufficent to tune
+      case VT_C:
+      case VT_T:  // even If we would have S2API, the old is sufficent to tune
         ret = ioctl(hw->frontend_fd, FE_SET_FRONTEND, fe_params); 
         break;
+      default:
+	WARN("tuning not implemented for HW-type:%d (S:%d, S2:%d C:%d T:%d)\n", hw->type, VT_S, VT_S2, VT_C, VT_T);
     }
   #endif
-  if( ret != 0 ) WARN("FE_SET_FRONTEND failed %s\n", msg);
+  if( ret != 0 ) WARN("FE_SET_FRONTEND failed %s - %m\n", msg);
   return ret;
 }
 

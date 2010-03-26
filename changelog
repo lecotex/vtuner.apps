@@ -1,7 +1,14 @@
 ------------------------------------------------------------------------
+r55
+
+fixed a bug in DVB-C/T tuning (see r52)
+minore changes to debug messages
+
+------------------------------------------------------------------------
 r54
 
 added sh4 target platform
+
 can't test this myself, pls. report both bug's and success
 
 ------------------------------------------------------------------------
