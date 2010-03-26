@@ -378,9 +378,9 @@ void *session_worker(void *data) {
           }
 
           if (msg.u.vtuner.type != MSG_PIDLIST ) {
-            msg.u.vtuner.type = ret;
             if( ret!= 0 )
-              WARN("vtuner call failed, type:%d reason:%d - %m\n", msg.u.vtuner.type, ret);
+              WARN("vtuner call failed, type:%d reason:%d\n", msg.u.vtuner.type, ret);
+            msg.u.vtuner.type = ret;
             hton_vtuner_net_message(&msg, session->hw.type);
             write(ctrl_fd, &msg, sizeof(msg));
           }
