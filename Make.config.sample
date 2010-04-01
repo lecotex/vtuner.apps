@@ -1,6 +1,3 @@
-# define the targets vtuner is built for
-ARCHS=i686 ppc db2 mipsel
-
 # define the CC for target i686
 CC-i686=gcc
 INCLUDE-i686=
@@ -12,7 +9,9 @@ INCLUDE-ppc=-I/stuff/dm600pvr/build/tmp/work/dreambox-dvbincludes-1-r0/include
 
 # define the CC for target mipsel
 CC-mipsel=/stuff/dm800/build/tmp/cross/bin/mipsel-linux-gcc
-CPP-mipsel=/stuff/dm800/build/tmp/cross/bin/mipsel-linux-g++ 
+CXX-mipsel=/stuff/dm800/build/tmp/cross/bin/mipsel-linux-g++ 
+#CC-mipsel=/stuff-1.6/dm500hd/build/tmp/cross/mipsel/bin/mipsel-oe-linux-gcc
+#CXX-mipsel=/stuff-1.6/dm500hd/build/tmp/cross/mipsel/bin/mipsel-oe-linux-g++
 # define some extra options to compile shared library for vtunerd enigma plugin
 PLUGIN_CFLAGS-mipsel=-I/stuff/dm800/build/tmp/staging/mipsel-linux/include/enigma2 -I/stuff/dm800/build/tmp/staging/mipsel-linux/include/sigc++-1.2 -I/stuff/dm800/build/tmp/staging/mipsel-linux/lib/sigc++-1.2/include -I/stuff/dm800/build/tmp/staging/mipsel-linux/include/python2.5
 PLUGIN_LDFLAGS-mipsel=-shared -Wl,-soname,vtunerdservice.so
