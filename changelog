@@ -1,8 +1,13 @@
 ------------------------------------------------------------------------
+r56
+
+cleanup the Makefile and related other
+
+------------------------------------------------------------------------
 r55
 
 fixed a bug in DVB-C/T tuning (see r52)
-minore changes to debug messages
+minor changes to debug messages
 
 ------------------------------------------------------------------------
 r54

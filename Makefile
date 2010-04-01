@@ -1,6 +1,6 @@
 -include ../../Make.config
 
-all: i686 ppc db2 mipsel sh4 ipkg
+all: i686 mipsel ppc db2 sh4 ipkg
 
 i686:
 	$(MAKE) -C build/i686
