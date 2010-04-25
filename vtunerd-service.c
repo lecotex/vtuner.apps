@@ -1,6 +1,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <poll.h>
+#include <errno.h>
 
 #include <sys/ioctl.h>
 #include <sys/socket.h>
@@ -9,6 +10,9 @@
 #include <netinet/tcp.h>
 
 #include "vtunerd-service.h"
+
+#define xstr(s) str(s)
+#define str(s) #s
 
 void *discover_worker(void *data) {
   vtuner_session_t* session = (vtuner_session_t*)data;
@@ -155,11 +159,11 @@ void *tsdata_worker(void *d) {
   DEBUGSRV("tsdata_worker thread started.\n");
 
   #ifdef DBGTS
-  int dbg_fd=open(DBGTS, O_RDWR);
+  int dbg_fd=open( xstr(DBGTS) , O_RDWR|O_TRUNC);
   if(dbg_fd<0)
-    DEBUGSRV("Can't open debug ts file %s - %m\n",DBGTS);
+    DEBUGSRV("Can't open debug ts file %s - %m\n",xstr(DBGTS));
   else
-    DEBUGSRV("copy TS data to %s\n", DBGTS);
+    DEBUGSRV("copy TS data to %s\n", xstr(DBGTS));
   #endif
 
   out_fd = accept(data->listen_fd, (struct sockaddr *)&addr, &addrlen);
@@ -175,8 +179,19 @@ void *tsdata_worker(void *d) {
 
   set_socket_options(out_fd);
  
-  unsigned char buffer[188*696];
+  #define RMAX (188*174)
+  #define WMAX (4*RMAX)  // match client read size
+  unsigned char buffer[WMAX*4]; 
   int bufptr = 0, bufptr_write = 0;
+
+  size_t window_size = sizeof(buffer);
+  if(setsockopt(out_fd, SOL_SOCKET, SO_SNDBUF, (char *) &window_size, sizeof(window_size))) {
+    WARN("set window size failed - %m\n");
+  }
+
+  if( fcntl(out_fd, F_SETFL, O_NONBLOCK) != 0) {
+    WARN("O_NONBLOCK failed for socket - %m\n");
+  }
 
   long long now, last_written;
   struct timespec t;
@@ -184,53 +199,72 @@ void *tsdata_worker(void *d) {
   last_written = (long long)t.tv_sec*1000 + (long long)t.tv_nsec/1000000;
 
   while(data->status == DST_RUNNING) {
-    struct pollfd pfd[] = { {data->in, POLLIN, 0} };
-    poll(pfd, 1, 50);
+    struct pollfd pfd[] = { {data->in, POLLIN, 0}, {out_fd, POLLOUT, 0} };
+    int waiting = poll(pfd, 2, 10);
+
     if(pfd[0].revents & POLLIN) {
-      // 2010-01-30
-      // read can delay writes if too much data is read in one call
-      int rmax = (sizeof(buffer) - bufptr)>32712?32712:(sizeof(buffer) - bufptr);
+      int rmax = (sizeof(buffer) - bufptr);
+      // reading too much data can delay writing, read 1/4
+      // of RMAX
+      rmax = (rmax>RMAX)?RMAX:rmax;
       if(rmax == 0) {
-        WARN("no space left in buffer to read data, data loss possible\n");
+        INFO("no space left in buffer to read data, data loss possible\n");
       } else {
         int rlen = read(data->in, buffer + bufptr, rmax);
         if(rlen>0) bufptr += rlen;
-        // DEBUGSRV("receive buffer stats size:%d, rmax:%d, read:%d\n", sizeof(buffer) - bufptr, rmax, rlen); 
+/*
+        DEBUGSRV("receive buffer stats size:%d(%d,%d), read:%d(%d,%d)\n", \
+                  rmax, rmax/188, rmax%188,
+                  rlen, rlen/188, rlen%188); 
+*/
       }
     } 
-    
+
     int w = bufptr - bufptr_write;
     clock_gettime(CLOCK_MONOTONIC, &t);
     now = (long long)t.tv_sec*1000 + (long long)t.tv_nsec/1000000;
-    
     long long delta = now - last_written;
-    if( w >= 65424 || ( now - last_written > 100 && w > 0) ) {
-      // as tcp is used now, no need to care about max. udp msg size anymore
-      // if( w > 65424) w = 65424; // cap write to max. udp msg size rounded down to ts
+
+    // 2010-04-04:
+    // send data in the same amount as received on the
+    // client side, this should reduce syscalls on both
+    // ends of the connection
+    if( pfd[1].revents & POLLOUT && \
+        (w >= WMAX || (now - last_written > 100 && w > 0)) ) {
+      w = w>WMAX?WMAX:w; // write the same mount the client prefers to read
       int wlen = write(out_fd,  buffer + bufptr_write, w);
-      // DEBUGSRV("send buffer stats. size:%d, written:%d, delay: %d\n", bufptr - bufptr_write, wlen, delta);
-      if(wlen>0) {
+      if(delta>100) {
+        INFO("data sent late: size:%d, written:%d, delay: %lld\n", \
+              bufptr - bufptr_write, wlen, delta);
+      }
+      #ifdef DBGTS
+      int dgblen = write(dbg_fd, buffer + bufptr_write, w);
+      if( wlen != dgblen) {
+        DEBUGSRV("stream write:%d debug file write:%d. debug file me be corrupt.\n");
+      }
+      #endif
+      
+      if(wlen>=0) {
         bufptr_write += wlen;
         // 2010-01-30 do not reset on each write
         // last_written = now;
       } else {
-        data->status = DST_FAILED;
+        if( errno != EAGAIN ) {
+          data->status = DST_FAILED;
+          ERROR("stream write failed %d!=%d - %m\n", errno, EAGAIN);
+        }
       }
       if (bufptr_write == bufptr) {
         bufptr_write = bufptr = 0;
         // 2010-01-30 reset last_writen only if buffer is empty
         last_written = now;
       }
-      #ifdef DBGTS
-        //FIXME
-        write(dbg_fd, buffer, rlen);
-      #endif
     } else {
       // 2010-01-30
       // if nothing is written, wait a few ms to avoid reading
-      // data in small chunks, max. read chunk is ~32kB
-      // 5ms wait. should give ~6.4MB/s 
-      usleep(5*1000);
+      // data in small chunks, max. read chunk is ~128kB
+      // 20ms wait. should give ~6.4MB/s 
+      usleep(20*1000);
     }
   }
 
