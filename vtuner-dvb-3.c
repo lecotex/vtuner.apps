@@ -57,7 +57,7 @@ int hw_init(vtuner_hw_t* hw, int adapter, int frontend, int demux, int dvr) {
 
   sprintf( devstr, "/dev/dvb/adapter%d/demux%d", hw->adapter, demux);
   for(i=0; i<MAX_DEMUX; ++i) {
-    hw->demux_fd[i] = open(devstr, O_RDWR);
+    hw->demux_fd[i] = open(devstr, O_RDWR|O_NONBLOCK);
     if(hw->demux_fd[i]<0) {
       ERROR("failed to open %s\n", devstr);
       goto cleanup_demux;
@@ -67,10 +67,12 @@ int hw_init(vtuner_hw_t* hw, int adapter, int frontend, int demux, int dvr) {
       ERROR("DMX_SET_BUFFER_SIZE failed for %s\n",devstr);
       goto cleanup_demux;
     }
+/*
     if( fcntl(hw->demux_fd[i], F_SETFL, O_NONBLOCK) != 0) {
       ERROR("O_NONBLOCK failed for %s\n",devstr);
       goto cleanup_demux;
     }
+*/
   }
 
   return 0;

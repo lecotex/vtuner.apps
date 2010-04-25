@@ -45,12 +45,16 @@ void *tsdata_worker(void *d) {
   data->status = DST_RUNNING;
 
   // 2010-01-30
-  // increased buffer size from 188*384 to 188*4462
-  // this allows 64mbit/s to be transfered with 10 reads/s
-  // increase receive window size as well
-  char buf[188*4462];
+  // net.ipv4.tcp_wmem max is typically 131072, choosen a value
+  // below that is a multiple of TS package size
+  // need to have a buffer greater than this to detect if we're
+  // receiving to slow
+  int rmax=696*188;
+  char buf[(696+100)*188];
   size_t window_size = sizeof(buf);
   setsockopt(data->in, SOL_SOCKET, SO_RCVBUF, (char *) &window_size, sizeof(window_size));
+
+  int delay=50; //ms to sleep after each write
 
   while(data->status == DST_RUNNING) {
     struct pollfd pfd[] = { { data->in, POLLIN, 0 } };
@@ -58,21 +62,37 @@ void *tsdata_worker(void *d) {
     if( poll(pfd, 1, 500) != 0) {
       // we're polling one fd here so we know that reading can't block
       int r = read(data->in, buf, sizeof(buf) );
+
+      // 2010-04-03 try to calculate optimal read delay.
+      // read to often wastes CPU resources
+      // reading to slow delays playback and makes
+      // scaning impossible
+      // the ideo is to adjust the delay to always receive 
+      // packages in the range of 70% - 90% of rmax
+    
+      if( r > rmax && delay > 15) {
+        delay -= 2;
+        DEBUGMAIN("decreased delay: r:%d rmax:%d, delay:%d\n", r, rmax, delay);
+      } else if( r < 0.70*rmax && delay < 95) {
+        delay += 2;
+        DEBUGMAIN("increased delay: r:%d rmax:%d, delay:%d\n", r, rmax, delay);
+      } 
+
       if (r <= 0) {
-        ERROR("tcp read\n");
+        ERROR("tcp read - %m\n");
         data->status = DST_FAILED;
       } else {
         if (write(data->out, buf, r) != r) {
-          ERROR("write failed - %m");
+          ERROR("write failed - %m\n");
           data->status = DST_FAILED;
         } else {
-          // DEBUGMAIN("receive buffer stats. size:%d, delay:%d\n", r, 0); 
+          // DEBUGMAIN("receive buffer stats. size:%d, rmax:%d, delay:%d\n", r, rmax, delay); 
           // suggested from H2Deetoo to prevent pixelation with
           // crypted HD DVB-C channels
           // 2010-01-30
           // wait 100 ms instead of 10 to allow a large chunk of 
           // data to be received in between 
-          usleep(100*1000);
+          usleep(delay*1000);
         }
       }
     }
