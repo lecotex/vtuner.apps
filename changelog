@@ -1,4 +1,10 @@
 ------------------------------------------------------------------------
+r57
+
+- change vtunerd to use non blocking IO
+- network packet size optimization
+
+------------------------------------------------------------------------
 r56
 
 cleanup the Makefile and related other
