@@ -52,7 +52,7 @@ int hw_init(vtuner_hw_t* hw, int adapter, int frontend, int demux, int dvr) {
   INFO("FE_GET_INFO dvb-type:%d vtuner-type:%d\n", hw->fe_info.type, hw->type);
   
   sprintf( devstr, "/dev/dvb/adapter%d/demux%d", hw->adapter, demux);
-  hw->demux_fd = hw->streaming_fd = open(devstr, O_RDWR);
+  hw->demux_fd = hw->streaming_fd = open(devstr, O_RDWR|O_NONBLOCK);
   if(hw->demux_fd<0) {
     ERROR("failed to open %s\n", devstr);
     goto cleanup_fe;
@@ -68,12 +68,12 @@ int hw_init(vtuner_hw_t* hw, int adapter, int frontend, int demux, int dvr) {
     ERROR("DMX_SET_BUFFER_SIZE failed for %s\n",devstr);
     goto cleanup_demux;
   }
-
+/*
   if( fcntl(hw->demux_fd, F_SETFL, O_NONBLOCK) != 0) {
     ERROR("O_NONBLOCK failed for %s\n",devstr);
     goto cleanup_demux;
   }
-
+*/
   struct dmx_pes_filter_params flt;
   flt.pid = -1;
   flt.input = DMX_IN_FRONTEND;
