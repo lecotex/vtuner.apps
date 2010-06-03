@@ -19,6 +19,3 @@ vtuner-dmm-3.o: ../../vtuner-dmm-3.c ../../vtuner-dmm-3.h
 
 vtunerd-plugin.o: ../../vtunerd-plugin.c ../../vtunerd-service.h ../../vtuner-utils.h
 	$(CXX) $(CFLAGS) $(PLUGIN_CFLAGS-$(ARCH)) -c -o vtunerd-plugin.o ../../vtunerd-plugin.c
-
-../../dist/$(ARCH)/vtunerdservice.so: vtuner-network.o vtunerd-service.o vtuner-dmm-3.o vtuner-utils.o vtunerd-plugin.o
-	$(CC) $(PLUGIN_LDFLAGS-$(ARCH)) $(LDFLAGS) -o ../../dist/$(ARCH)/vtunerdservice.so vtuner-network.o vtunerd-service.o vtuner-dmm-3.o vtuner-utils.o vtunerd-plugin.o
