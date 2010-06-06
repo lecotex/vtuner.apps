@@ -34,7 +34,17 @@ int hw_init(vtuner_hw_t* hw, int adapter, int frontend, int demux, int dvr) {
   }
 
   switch(hw->fe_info.type) {
-    case FE_QPSK: hw->type = VT_S; break;
+    case FE_QPSK: 
+      #if DVB_API_VERSION < 5
+        hw->type = VT_S;
+      #else
+        if( hw->fe_info.caps & ( FE_HAS_EXTENDED_CAPS | FE_CAN_2G_MODULATION ) ) {
+          hw->type = VT_S2; 
+        } else {
+          hw->type = VT_S;
+        } 
+      #endif
+      break;
     case FE_QAM:  hw->type = VT_C; break;
     case FE_OFDM: hw->type = VT_T; break;
     default: 

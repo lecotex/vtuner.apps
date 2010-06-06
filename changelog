@@ -1,4 +1,28 @@
 ------------------------------------------------------------------------
+r61
+added support for up to three different frontend modes for the client
+mode can be switched while e2 is running ( tuner configuration, choose 
+vtuner and switch tuner type)
+
+modes can be given as parameter to vtunerc.mipsel, possible values
+are:
+-s2: register DVB-S2 frontend, but connect to any DVB-S or -S2 server
+-S2: register DVB-S2 frontend, connect to DVB-S2 server
+-s:  register DVB-S frontend, but connect to any DVB-S or -S2 server
+-S:  register DVB-S frontend, connect to DVB-S server
+-c:  register DVB-C frontend, connect to DVB-C server
+-t:  register DVB-T frontend, connect to DVB-T server
+
+You should edit /etc/vtunerc.conf after installation on your box:
+DAEMON="/usr/sbin/vtunerc.mipsel"
+OPTIONS="-s2 -c -t"
+
+NOTE: The old vtunercs, vtunercc or vtunerct calling convention is
+still supported, but this limits to client to one frontend.
+
+NOTE: the mipsel server can't distiguish between DVB-S2 and DVB-S, 
+you should not use -S2 if you want to connect to a mipsel box.
+------------------------------------------------------------------------
 r60
 switch to OE1.6
 remove plugin code from SVN

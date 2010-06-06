@@ -177,7 +177,8 @@ void hton_vtuner_net_message(vtuner_net_message_t* netmsg, vtuner_type_t type) {
       switch (type) {
         case VT_S :
         case VT_S2:
-          DEBUGNETC(" VT_S");
+        case VT_S|VT_S2:
+          DEBUGNETC(" VT_S/VT_S2");
           HTONLc( netmsg->u.vtuner.body.fe_params, u.qpsk.symbol_rate);
           HTONLc( netmsg->u.vtuner.body.fe_params, u.qpsk.fec_inner);
           break;
@@ -271,7 +272,8 @@ void ntoh_vtuner_net_message(vtuner_net_message_t* netmsg, vtuner_type_t type) {
       switch (type) {
         case VT_S :
         case VT_S2:
-          DEBUGNETC(" VT_S");
+        case VT_S|VT_S2:
+          DEBUGNETC(" VT_S/VT_S2");
           NTOHLc( netmsg->u.vtuner.body.fe_params, u.qpsk.symbol_rate);
           NTOHLc( netmsg->u.vtuner.body.fe_params, u.qpsk.fec_inner);
           break;
