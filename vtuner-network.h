@@ -37,6 +37,7 @@ typedef enum vtuner_type {
 #define MSG_SEND_DISEQC_MSG      11
 #define MSG_SEND_DISEQC_BURST    13
 #define MSG_PIDLIST              14
+#define MSG_TYPE_CHANGED	 15
 
 #define MSG_NULL		 1024
 #define MSG_DISCOVER		 1025
@@ -90,6 +91,7 @@ typedef struct vtuner_message {
                 __u8 burst;
                 __u16 pidlist[30];
                 __u8  pad[60];
+		__u32 type_changed;
         } body;
 } vtuner_message_t;
 

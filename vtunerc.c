@@ -9,6 +9,7 @@
 #include <netdb.h>
 #include <string.h>
 #include <syslog.h>
+#include <signal.h>
 
 #include "vtuner-network.h"
 
@@ -19,6 +20,8 @@
 #define VTUNER_SET_TYPE     4
 #define VTUNER_SET_HAS_OUTPUTS 5
 #define VTUNER_SET_FE_INFO 6
+#define VTUNER_SET_NUM_MODES 7 // up to two modes suppported now
+#define VTUNER_SET_MODES 8 // char[2][32]
 
 int dbg_level =  0x00ff;
 int use_syslog = 1;
@@ -236,13 +239,16 @@ struct dvb_frontend_info fe_info_dvbt = {
   .caps                  = 0xb2eaf
 };
 
+#define MAX_NUM_VTUNER_MODES 3
+
 int main(int argc, char **argv) {
 
   openlog("vtunerc", LOG_PERROR, LOG_USER);
 
-  int type;
-  char ctype[7];
-  struct dvb_frontend_info* vtuner_info;
+  int modes, mode;
+  char ctypes[MAX_NUM_VTUNER_MODES][32] = {"none", "none", "none"};
+  struct dvb_frontend_info* vtuner_info[MAX_NUM_VTUNER_MODES];
+  int types[MAX_NUM_VTUNER_MODES];
 
   int vtuner_control = open("/dev/misc/vtuner0", O_RDWR);
   if (vtuner_control < 0) {
@@ -260,31 +266,70 @@ int main(int argc, char **argv) {
     exit(1);
   }
 
+  mode = 0;
   if(strstr(argv[0],"vtunercs") != NULL) {
-    type = VT_S; 
-    strncpy(ctype,"DVB-S2",sizeof(ctype));
-    vtuner_info = &fe_info_dvbs2;
+    types[0] = VT_S|VT_S2; modes = 1;
+    strncpy(ctypes[0],"DVB-S2",sizeof(ctypes[0]));
+    vtuner_info[0] = &fe_info_dvbs2;
   } else if(strstr(argv[0],"vtunerct") != NULL ) {
-    type = VT_T;
-    strncpy(ctype,"DVB-T",sizeof(ctype));
-    vtuner_info = &fe_info_dvbt;
+    types[0] = VT_T; modes = 1;
+    strncpy(ctypes[0],"DVB-T",sizeof(ctypes[0]));
+    vtuner_info[0] = &fe_info_dvbt; 
   } else if(strstr(argv[0],"vtunercc") != NULL ) {
-    type = VT_C;
-    strncpy(ctype,"DVB-C",sizeof(ctype));
-    vtuner_info = &fe_info_dvbc;
+    types[0] = VT_C; modes = 1;
+    strncpy(ctypes[0],"DVB-C",sizeof(ctypes[0]));
+    vtuner_info[0] = &fe_info_dvbc;
   } else {
-    ERROR("unknown filename\n");
-    exit(1);
+    int i; modes = 0;
+    if( argc-1 > MAX_NUM_VTUNER_MODES) {
+      ERROR("more than %i modes given\n", MAX_NUM_VTUNER_MODES);
+      exit(1);
+    }
+    for(i=1; i<argc; ++i) {
+      if(strcmp(argv[i],"-s")==0) {
+	types[modes] = VT_S | VT_S2;
+        vtuner_info[modes] = &fe_info_dvbs;
+        strncpy(ctypes[modes],"DVB-S",sizeof(ctypes[0]));
+      } else if(strcmp(argv[i],"-s2")==0) {
+        types[modes] = VT_S | VT_S2;
+        vtuner_info[modes] = &fe_info_dvbs2;
+        strncpy(ctypes[modes],"DVB-S2",sizeof(ctypes[0]));
+      } else if(strcmp(argv[i],"-S")==0) {
+        types[modes] = VT_S;
+        vtuner_info[modes] = &fe_info_dvbs;
+        strncpy(ctypes[modes],"DVB-S",sizeof(ctypes[0]));
+      } else if(strcmp(argv[i],"-S2")==0) {
+        types[modes] = VT_S2;
+        vtuner_info[modes] = &fe_info_dvbs2;
+        strncpy(ctypes[modes],"DVB-S2",sizeof(ctypes[0]));
+      } else if(strcmp(argv[i],"-c")==0) {
+        types[modes] = VT_C;
+        vtuner_info[modes] = &fe_info_dvbc;
+        strncpy(ctypes[modes],"DVB-C",sizeof(ctypes[0]));
+      } else if(strcmp(argv[i],"-t")==0) {
+        types[modes] = VT_T;
+        vtuner_info[modes] = &fe_info_dvbt;
+        strncpy(ctypes[modes],"DVB-T",sizeof(ctypes[0]));
+      } else {
+        ERROR("unknown tuner mode specified: %s allow values are: -s -S -s2 -S2 -c -t\n", argv[i]);
+        exit(1);
+      }
+      DEBUGMAIN("added frontend mode %s as mode %d, searching for tuner types %x\n", ctypes[modes], modes, types[modes]);
+      ++modes;
+    }
+
   }
-  INFO("Simulating a %s tuner\n", ctype); 
+  INFO("Simulating a %s tuner\n", ctypes[mode]); 
 
   int f;
   f = open("/proc/stb/info/model",O_RDONLY);
   if(f>0) {
 
     char model[20];
-    read(f, &model, sizeof(model));
+    int len;
+    len = read(f, &model, sizeof(model)-1); 
     close(f);
+    model[len] = 0;
     INFO("Box is a %s", model);
 
 /*
@@ -304,16 +349,6 @@ int main(int argc, char **argv) {
 */
   }
 
-  if (ioctl(vtuner_control, VTUNER_SET_TYPE, ctype)) {
-    ERROR("VTUNER_SET_TYPE failed - %m\n");
-    exit(1);
-  }
-
-  if (ioctl(vtuner_control, VTUNER_SET_FE_INFO, vtuner_info)) {
-    ERROR("VTUNER_SET_FE_INFO failed - %m\n");
-    exit(1);
-  }
-
   discover_worker_data_t dsd;
   dsd.status = DWS_IDLE;
   vtuner_status_t vts = VTS_DISCONNECTED;
@@ -331,9 +366,26 @@ int main(int argc, char **argv) {
     vtuner_net_message_t msg;
 
     if( vts == VTS_DISCONNECTED ) {
+      DEBUGMAIN("no server connected. discover thread is %d (DWS_IDLE:%d, DWS_RUNNING:%d)\n", dsd.status, DWS_IDLE, DWS_RUNNING);
       if( dsd.status == DWS_IDLE ) {
-        DEBUGMAIN("Start discover worker for device type %x\n", type);
-        dsd.types = type;
+        DEBUGMAIN("changeing frontend mode to %s\n", ctypes[mode]);
+        if( ioctl(vtuner_control, VTUNER_SET_NUM_MODES, modes) ) {
+          ERROR("VTUNER_SET_NUM_MODES( %d ) failed - %m\n", modes);
+          // for now, -EINVAL is returned even if success
+          // exit(1);
+        }
+        if( ioctl(vtuner_control, VTUNER_SET_MODES, ctypes) ) {
+          ERROR(" VTUNER_SET_MODES failed( %s, %s, %s ) - %m\n", ctypes[0], ctypes[1], ctypes[2]);
+          // for now, -EINVAL is returned even if success
+          // exit(1);
+        }
+        if (ioctl(vtuner_control, VTUNER_SET_FE_INFO, vtuner_info[mode])) {
+          ERROR("VTUNER_SET_FE_INFO failed - %m\n");
+          exit(1);
+        }
+
+        DEBUGMAIN("Start discover worker for device type %x\n", types[mode]);
+        dsd.types = types[mode];
         dsd.status = DWS_RUNNING;
         pthread_create( &dst, NULL, discover_worker, &dsd);
         vts = VTS_DISCOVERING;
@@ -384,7 +436,7 @@ int main(int argc, char **argv) {
             for(i=0; i<RECORDLEN; ++i) {
               if(record[i].msg_type != 0) {
                 memcpy(&msg, &record[i], sizeof(msg));
-                hton_vtuner_net_message( &msg, type );
+                hton_vtuner_net_message( &msg, types[mode] );
                 if(write(vfd, &msg, sizeof(msg))>0) {
                   INFO("replay message %d\n", i);
                   if(record[i].msg_type != MSG_PIDLIST) {
@@ -417,71 +469,101 @@ int main(int argc, char **argv) {
       // so it's not save to access msg_type afterwards
       int msg_type = msg.msg_type = msg.u.vtuner.type;
 
-      // fill the record array in the correct order
-      int recordnr = -1;
-      switch(msg.u.vtuner.type) {
-        case MSG_SET_FRONTEND:     recordnr=3; break;
-        case MSG_SET_TONE:         recordnr=1; break;
-        case MSG_SET_VOLTAGE:      recordnr=2; break;
-        case MSG_SEND_DISEQC_MSG:  recordnr=0; break;
-        case MSG_PIDLIST:          recordnr=4; break;
-      }
+      if(msg_type == MSG_TYPE_CHANGED) {
+        // this msg isn't forwarded to the server, instead
+        // we have to change the frontend type and discover
+        // another server on the network
 
-      if( recordnr != -1 ) {
-         memcpy(&record[recordnr], &msg, sizeof(msg));
-         // this is a "state changeing" msg, make cache expired
-         values_received = 0;
-      }
-
-      struct timespec t;
-      clock_gettime(CLOCK_MONOTONIC, &t);
-      long now=t.tv_sec*1000 + t.tv_nsec/1000000;
-
-      int dontsend = ( now - values_received < 1000 ) && 
-                     ( vts == VTS_CONNECTED ) &&
-                     ( msg_type == MSG_READ_STATUS || msg_type == MSG_READ_BER || 
-                       msg_type == MSG_READ_SIGNAL_STRENGTH || msg_type == MSG_READ_SNR || 
-                       msg_type == MSG_READ_UCBLOCKS );
-
-      if( vts == VTS_CONNECTED && ! dontsend )  {
-        hton_vtuner_net_message( &msg, type );
-        write(vfd, &msg, sizeof(msg));
-      }
-
-      if( dontsend ) {
-        switch(msg_type) {
-          case MSG_READ_STATUS:          msg.u.vtuner.body.status = values.status; break;
-          case MSG_READ_BER:             msg.u.vtuner.body.ber    = values.ber; break;
-          case MSG_READ_SIGNAL_STRENGTH: msg.u.vtuner.body.ss     = values.ss; break;
-          case MSG_READ_SNR:             msg.u.vtuner.body.snr    = values.snr; break; 
-          case MSG_READ_UCBLOCKS:        msg.u.vtuner.body.ucb    = values.ucb; break;
-        }
-        DEBUGMAIN("cached values are up to date\n");
-      }
-
-      if (msg_type != MSG_PIDLIST) {
-        if( vts == VTS_CONNECTED ) {
-          if( ! dontsend ) {
-            read(vfd, &msg, sizeof(msg));
-            ntoh_vtuner_net_message( &msg, type );
-          }
-        } else {
-          INFO("fake server answer\n");
-          switch(msg.u.vtuner.type) {
-            case MSG_READ_STATUS:  
-              msg.u.vtuner.body.status = 0; // tuning failed
-              break; 
-          }
-          msg.u.vtuner.type = 0; // report success
-        }
+        mode = msg.u.vtuner.body.type_changed;
+        msg.u.vtuner.type = 0;
         if (ioctl(vtuner_control, VTUNER_SET_RESPONSE, &msg.u.vtuner)) {
           ERROR("VTUNER_SET_RESPONSE - %m\n");
           exit(1);
         }
+        // empty all recorded reconnecion information
+        memset(&record, 0, sizeof(vtuner_net_message_t)*RECORDLEN);
+
+	// disconnect from server
+        vts = VTS_DISCONNECTED;
+        close(vfd);
+
+        // if disvoery is ongoing cancle it
+        if(dsd.status == DWS_RUNNING) {
+          DEBUGMAIN("discover thread is running, try to cancle it.\n");
+          pthread_cancel(dst);
+          pthread_join(dst, NULL);	  
+          DEBUGMAIN("discover thread terminated.\n");
+          dsd.status = DWS_IDLE;
+        }
+        INFO("msg: %d completed\n", msg_type);
+
+      } else {
+        // fill the record array in the correct order
+        int recordnr = -1;
+        switch(msg.u.vtuner.type) {
+          case MSG_SET_FRONTEND:     recordnr=3; break;
+          case MSG_SET_TONE:         recordnr=1; break;
+          case MSG_SET_VOLTAGE:      recordnr=2; break;
+          case MSG_SEND_DISEQC_MSG:  recordnr=0; break;
+          case MSG_PIDLIST:          recordnr=4; break;
+        }
+
+        if( recordnr != -1 ) {
+           memcpy(&record[recordnr], &msg, sizeof(msg));
+           // this is a "state changeing" msg, make cache expired
+           values_received = 0;
+        }
+
+        struct timespec t;
+        clock_gettime(CLOCK_MONOTONIC, &t);
+        long now=t.tv_sec*1000 + t.tv_nsec/1000000;
+
+        int dontsend = ( now - values_received < 1000 ) && 
+                       ( vts == VTS_CONNECTED ) &&
+                       ( msg_type == MSG_READ_STATUS || msg_type == MSG_READ_BER || 
+                         msg_type == MSG_READ_SIGNAL_STRENGTH || msg_type == MSG_READ_SNR || 
+                         msg_type == MSG_READ_UCBLOCKS );
+
+        if( vts == VTS_CONNECTED && ! dontsend )  {
+          hton_vtuner_net_message( &msg, types[mode] );
+          write(vfd, &msg, sizeof(msg));
+        }
+
+        if( dontsend ) {
+          switch(msg_type) {
+            case MSG_READ_STATUS:          msg.u.vtuner.body.status = values.status; break;
+            case MSG_READ_BER:             msg.u.vtuner.body.ber    = values.ber; break;
+            case MSG_READ_SIGNAL_STRENGTH: msg.u.vtuner.body.ss     = values.ss; break;
+            case MSG_READ_SNR:             msg.u.vtuner.body.snr    = values.snr; break; 
+            case MSG_READ_UCBLOCKS:        msg.u.vtuner.body.ucb    = values.ucb; break;
+          }
+          DEBUGMAIN("cached values are up to date\n");
+        }
+
+        if (msg_type != MSG_PIDLIST) {
+          if( vts == VTS_CONNECTED ) {
+            if( ! dontsend ) {
+              read(vfd, &msg, sizeof(msg));
+              ntoh_vtuner_net_message( &msg, types[mode] );
+            }
+          } else {
+            INFO("fake server answer\n");
+            switch(msg.u.vtuner.type) {
+              case MSG_READ_STATUS:  
+                msg.u.vtuner.body.status = 0; // tuning failed
+                break; 
+            }
+            msg.u.vtuner.type = 0; // report success
+          }
+          if (ioctl(vtuner_control, VTUNER_SET_RESPONSE, &msg.u.vtuner)) {
+            ERROR("VTUNER_SET_RESPONSE - %m\n");
+            exit(1);
+          }
+        }
+        INFO("msg: %d completed\n", msg_type);
       }
-      INFO("msg: %d completed\n", msg_type);
     }
-          
+         
     if( pfd[1].revents & POLLIN ) {
       int rlen = read(vfd, &msg, sizeof(msg));
       if(rlen == 0) {
@@ -490,7 +572,7 @@ int main(int argc, char **argv) {
         close(vfd);
       } 
       if( rlen == sizeof(msg)) {
-        ntoh_vtuner_net_message( &msg, type );
+        ntoh_vtuner_net_message( &msg, types[mode] );
         switch(msg.msg_type) {
           case MSG_UPDATE: {
             struct timespec t;
