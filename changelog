@@ -1,4 +1,14 @@
 ------------------------------------------------------------------------
+r63
+- OE1.6 build did not work with DM7025 (no OE1.6 available yet), added
+mipsel15 platform to overcome this
+
+NOTE:  clients and server are compatible from version r58 on
+------------------------------------------------------------------------
+r62
+created while adding tag for r61, no changes
+
+------------------------------------------------------------------------
 r61
 added support for up to three different frontend modes for the client
 mode can be switched while e2 is running ( tuner configuration, choose 
