@@ -1,5 +1,5 @@
 ipkg: 
-	tar -xf vtunerc-root.tar
+	tar -C vtuner-client -xf vtunerc-root.tar
 	cp ../dist/mipsel/vtunerc.mipsel vtuner-client/usr/sbin/
 	./ipkg-build vtuner-client
 	

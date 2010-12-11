@@ -1,4 +1,14 @@
 ------------------------------------------------------------------------
+r64
+- fix client failure if only one mode is given
+
+Known Issues:
+- vtuner is broken with newer images, because of new features
+  in the vtuner API not yet implemented. will be fixed 
+
+NOTE:  clients and server are compatible from version r58 on
+
+------------------------------------------------------------------------
 r63
 - OE1.6 build did not work with DM7025 (no OE1.6 available yet), added
 mipsel15 platform to overcome this
