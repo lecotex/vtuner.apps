@@ -331,22 +331,6 @@ int main(int argc, char **argv) {
     close(f);
     model[len] = 0;
     INFO("Box is a %s", model);
-
-/*
- *  ACF0 seems to be ok for SD, but kills sound on most HD channels for me
-    if(strcmp(model, "dm500hd")) {
-      char delay[5] = "ACF0";
-      INFO("DM500HD found. increase AV delay to avoid sound problem (%s).\n", delay);
-
-      f = open("/proc/stb/vmpeg/0/pts_offset", O_RDWR);
-      write(f, delay, sizeof(delay));
-      close(f);
-
-      f = open("/proc/stb/audio/pts_offset", O_RDWR);
-      write(f, delay, sizeof(delay));
-      close(f);
-    }
-*/
   }
 
   discover_worker_data_t dsd;
@@ -369,16 +353,22 @@ int main(int argc, char **argv) {
       DEBUGMAIN("no server connected. discover thread is %d (DWS_IDLE:%d, DWS_RUNNING:%d)\n", dsd.status, DWS_IDLE, DWS_RUNNING);
       if( dsd.status == DWS_IDLE ) {
         DEBUGMAIN("changeing frontend mode to %s\n", ctypes[mode]);
-        if( ioctl(vtuner_control, VTUNER_SET_NUM_MODES, modes) ) {
-          ERROR("VTUNER_SET_NUM_MODES( %d ) failed - %m\n", modes);
-          // for now, -EINVAL is returned even if success
-          // exit(1);
-        }
-        if( ioctl(vtuner_control, VTUNER_SET_MODES, ctypes) ) {
-          ERROR(" VTUNER_SET_MODES failed( %s, %s, %s ) - %m\n", ctypes[0], ctypes[1], ctypes[2]);
-          // for now, -EINVAL is returned even if success
-          // exit(1);
-        }
+	if( modes == 1 ) {
+          if (ioctl(vtuner_control, VTUNER_SET_TYPE, ctypes[0])) {
+            ERROR("VTUNER_SET_TYPE failed - %m\n");
+            exit(1);
+          }
+	} else {
+          if( ioctl(vtuner_control, VTUNER_SET_NUM_MODES, modes) ) {
+            ERROR("VTUNER_SET_NUM_MODES( %d ) failed - %m\n", modes);
+            exit(1);
+          }
+          if( ioctl(vtuner_control, VTUNER_SET_MODES, ctypes) ) {
+            ERROR(" VTUNER_SET_MODES failed( %s, %s, %s ) - %m\n", ctypes[0], ctypes[1], ctypes[2]);
+            exit(1);
+          }
+	}
+
         if (ioctl(vtuner_control, VTUNER_SET_FE_INFO, vtuner_info[mode])) {
           ERROR("VTUNER_SET_FE_INFO failed - %m\n");
           exit(1);
