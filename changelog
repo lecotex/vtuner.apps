@@ -1,3 +1,7 @@
+r68
+fixed client version numbering
+
+------------------------------------------------------------------------
 r67
 Added Support for FE_SET_PROPERTY
 - not compatible with older versions !
