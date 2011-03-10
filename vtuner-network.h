@@ -53,6 +53,45 @@ typedef struct diseqc_master_cmd {
 	__u8 msg_len;
 } diseqc_master_cmd_t;
 
+#if DVB_API_VERSION < 5 
+struct dtv_property {
+        __u32 cmd;
+        __u32 reserved[3];
+        union {
+                __u32 data;
+                struct {
+                        __u8 data[32];
+                        __u32 len;
+                        __u32 reserved1[3];
+                        void *reserved2;
+                } buffer;
+        } u;
+        int result;
+} __attribute__ ((packed));
+
+#define DTV_UNDEFINED           0
+#define DTV_TUNE                1
+#define DTV_CLEAR               2
+#define DTV_FREQUENCY           3
+#define DTV_MODULATION          4
+#define DTV_BANDWIDTH_HZ        5
+#define DTV_INVERSION           6
+#define DTV_DISEQC_MASTER       7
+#define DTV_SYMBOL_RATE         8
+#define DTV_INNER_FEC           9
+#define DTV_VOLTAGE             10
+#define DTV_TONE                11
+#define DTV_PILOT               12
+#define DTV_ROLLOFF             13
+#define DTV_DISEQC_SLAVE_REPLY  14
+#define DTV_FE_CAPABILITY_COUNT	15
+#define DTV_FE_CAPABILITY	16
+#define DTV_DELIVERY_SYSTEM	17
+
+#define DTV_IOCTL_MAX_MSGS 64
+
+#endif
+
 typedef struct vtuner_message {
         __s32 type;
         union {
@@ -83,6 +122,7 @@ typedef struct vtuner_message {
 				} vsb;
 			} u;
 		} fe_params;
+		struct dtv_property prop;
                 __u32 status;
                 __u32 ber;
                 __u16 ss, snr;
@@ -92,7 +132,7 @@ typedef struct vtuner_message {
 		diseqc_master_cmd_t diseqc_master_cmd;
                 __u8 burst;
                 __u16 pidlist[30];
-                __u8  pad[60];
+                __u8  pad[72];
 		__u32 type_changed;
         } body;
 } vtuner_message_t;

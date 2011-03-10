@@ -231,12 +231,14 @@ void *tsdata_worker(void *d) {
     // ends of the connection
     if( pfd[1].revents & POLLOUT && \
         (w >= WMAX || (now - last_written > 100 && w > 0)) ) {
-      w = w>WMAX?WMAX:w; // write the same mount the client prefers to read
+      w = w>WMAX?WMAX:w; // write the same amount of data the client prefers to read
       int wlen = write(out_fd,  buffer + bufptr_write, w);
+/*
       if(delta>100) {
         INFO("data sent late: size:%d, written:%d, delay: %lld\n", \
               bufptr - bufptr_write, wlen, delta);
       }
+*/
       #ifdef DBGTS
       int dgblen = write(dbg_fd, buffer + bufptr_write, w);
       if( wlen != dgblen) {
@@ -323,8 +325,12 @@ void *session_worker(void *data) {
     
     set_socket_options(ctrl_fd);
 
+    // client sends SET_FRONTEND with invalid data after a SET_PROPERTY 
+    int skip_set_frontend = 0;
+
     while(dwd.status == DST_RUNNING) {
       struct pollfd pfd[] = { { ctrl_fd, POLLIN, 0 } };
+      
       if(poll(pfd, 1, 750)==0) {
         // nothing else to do, send current info to client
         // strang problem with this feature
@@ -351,8 +357,14 @@ void *session_worker(void *data) {
           switch (msg.u.vtuner.type) {
             case MSG_SET_FRONTEND:
               get_dvb_frontend_parameters( &fe_params, &msg.u.vtuner, session->hw.type);
-              ret=hw_set_frontend( &session->hw, &fe_params);
-              DEBUGSRV("MSG_SET_FRONTEND\n");
+              if( skip_set_frontend ) {
+                // fake successful call
+                ret = 0;
+                DEBUGSRV("MSG_SET_FRONTEND skipped %d\n", skip_set_frontend);
+              } else {
+                ret=hw_set_frontend( &session->hw, &fe_params);
+                DEBUGSRV("MSG_SET_FRONTEND %d\n", skip_set_frontend);
+              }
               break;
             case MSG_GET_FRONTEND:
               ret=hw_get_frontend( &session->hw, &fe_params);
@@ -392,17 +404,26 @@ void *session_worker(void *data) {
               WARN("MSG_ENABLE_HIGH_VOLTAGE is not implemented: %d\n", msg.u.vtuner.body.pad[0]);
               break;
             case MSG_SEND_DISEQC_MSG: {
-              int i;
               ret=hw_send_diseq_msg( &session->hw, &msg.u.vtuner.body.diseqc_master_cmd);
               DEBUGSRV("MSG_SEND_DISEQC_MSG: \n");
               break;
             }
             case MSG_SEND_DISEQC_BURST: {
-              int i;
-              DEBUGSRV("MSG_SEND_DISEQC_BURST: %d\n", msg.u.vtuner.body.burst);
               ret=hw_send_diseq_burst( &session->hw, msg.u.vtuner.body.burst);
+              DEBUGSRV("MSG_SEND_DISEQC_BURST: %d %d\n", msg.u.vtuner.body.burst,ret);
               break;
             }
+	    case MSG_SET_PROPERTY: 
+              ret=hw_set_property( &session->hw, &msg.u.vtuner.body.prop);
+              // in case the call was successful, we have to skip all
+              // calls to SET_FRONTEND
+              skip_set_frontend = (ret == 0);
+              DEBUGSRV("MSG_SET_PROPERTY: %d %d %d\n", msg.u.vtuner.body.prop.cmd, skip_set_frontend, ret);
+              break;
+            case MSG_GET_PROPERTY: 
+              ret=hw_get_property( &session->hw, &msg.u.vtuner.body.prop);
+              DEBUGSRV("MSG_GET_PROPERTY: %d %d\n", msg.u.vtuner.body.prop.cmd,ret); 
+              break;
             case MSG_PIDLIST:
               ret=hw_pidlist( &session->hw, msg.u.vtuner.body.pidlist );
               break;

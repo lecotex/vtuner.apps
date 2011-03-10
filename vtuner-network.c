@@ -222,6 +222,11 @@ void hton_vtuner_net_message(vtuner_net_message_t* netmsg, vtuner_type_t type) {
       DEBUGNETC(" %d", netmsg->u.vtuner.body.ucb);
       HTONLc( netmsg->u.vtuner.body, ucb);
       break;
+    case MSG_SET_PROPERTY:
+    case MSG_GET_PROPERTY:
+      HTONLc( netmsg->u.vtuner.body, prop.cmd ); 
+      HTONLc( netmsg->u.vtuner.body, prop.u.data );
+      break;
     case MSG_PIDLIST: {
       int i;
       for(i=0; i<30; ++i) {
@@ -324,6 +329,11 @@ void ntoh_vtuner_net_message(vtuner_net_message_t* netmsg, vtuner_type_t type) {
         NTOHSc( netmsg->u.vtuner.body, pidlist[i]);
         DEBUGNETC(" %d", netmsg->u.vtuner.body.pidlist[i]);
       }
+      break;
+    case MSG_SET_PROPERTY: 
+    case MSG_GET_PROPERTY: 
+      HTONLc( netmsg->u.vtuner.body, prop.u.data );
+      HTONLc( netmsg->u.vtuner.body, prop.cmd );
       break;
     case MSG_DISCOVER:
       NTOHSc( netmsg->u.discover, port);

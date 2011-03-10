@@ -31,6 +31,8 @@ typedef struct vtuner_hw {
 int hw_init(vtuner_hw_t*, int, int, int, int);
 int hw_get_frontend(vtuner_hw_t*, FrontendParameters*);
 int hw_set_frontend(vtuner_hw_t*, FrontendParameters*);
+int hw_get_property(vtuner_hw_t*, struct dtv_property*);
+int hw_set_property(vtuner_hw_t*, struct dtv_property*);
 int hw_read_status(vtuner_hw_t*, __u32*);
 int hw_set_tone(vtuner_hw_t*, __u8);
 int hw_set_voltage(vtuner_hw_t*, __u8);

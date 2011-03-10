@@ -13,8 +13,10 @@ typedef enum {
         DMX_TAP_PES = DMX_PES_OTHER, /* for backward binary compat. */
 } dmx_tap_type_t;
 
-#define DMX_ADD_PID              _IO('o', 51)
-#define DMX_REMOVE_PID           _IO('o', 52)
+#if DVB_API_VERSION < 5
+  #define DMX_ADD_PID              _IO('o', 51)
+  #define DMX_REMOVE_PID           _IO('o', 52)
+#endif
 
 int hw_init(vtuner_hw_t* hw, int adapter, int frontend, int demux, int dvr) {
 
@@ -28,6 +30,9 @@ int hw_init(vtuner_hw_t* hw, int adapter, int frontend, int demux, int dvr) {
   hw->frontend_fd = 0;
   hw->demux_fd = hw->streaming_fd = 0;
   memset(hw->pids, 0xff, sizeof(hw->pids));
+
+  hw->num_props = 0;
+  memset(hw->props, 0x00, sizeof(hw->props));
 
   sprintf( devstr, "/dev/dvb/adapter%d/frontend%d", hw->adapter, hw->frontend);
   hw->frontend_fd = open( devstr, O_RDWR);
@@ -129,6 +134,64 @@ int hw_set_frontend(vtuner_hw_t* hw, struct dvb_frontend_parameters* fe_params) 
   INFO("FE_SET_FRONTEND parameters: %s", msg);
   ret = ioctl(hw->frontend_fd, FE_SET_FRONTEND, fe_params);
   if( ret != 0 ) WARN("FE_SET_FRONTEND failed %s\n", msg);
+  return ret;
+}
+
+int hw_get_property(vtuner_hw_t* hw, struct dtv_property* prop) {
+
+}
+
+int hw_set_property(vtuner_hw_t* hw, struct dtv_property* prop) {
+  int ret=0;
+#if DVB_API_VERSION < 5
+  ret = -1;
+  WARN("FE_SET_PROPERTY is not available\n");
+#else
+  DEBUGHW("FE_SET_PROPERTY %d\n", prop->cmd);
+  switch( prop->cmd ) {
+    case DTV_UNDEFINED: break;
+    case DTV_CLEAR: 
+      hw->num_props = 0; 
+      DEBUGHW("FE_SET_PROPERTY: DTV_CLEAR\n");
+      break;
+    case DTV_TUNE: {
+      hw->props[hw->num_props].cmd = prop->cmd;
+      hw->props[hw->num_props].u.data = prop->u.data;
+      ++hw->num_props;
+
+      struct dtv_properties cmdseq;
+      cmdseq.num = hw->num_props;
+      cmdseq.props = hw->props;
+      DEBUGHW("FE_SET_PROPERTY: DTV_TUNE\n");
+      ret=ioctl(hw->frontend_fd, FE_SET_PROPERTY, &cmdseq);
+      if( ret != 0 ) WARN("FE_SET_PROPERTY failed - %m\n");
+    } break;
+    case DTV_FREQUENCY:
+    case DTV_MODULATION:
+    case DTV_BANDWIDTH_HZ:
+    case DTV_INVERSION:
+    case DTV_DISEQC_MASTER:
+    case DTV_SYMBOL_RATE:
+    case DTV_INNER_FEC:
+    case DTV_VOLTAGE:
+    case DTV_TONE:
+    case DTV_PILOT:
+    case DTV_ROLLOFF:
+    case DTV_DISEQC_SLAVE_REPLY:
+      if(hw->num_props < DTV_IOCTL_MAX_MSGS) {
+        hw->props[hw->num_props].cmd = prop->cmd;
+        hw->props[hw->num_props].u.data = prop->u.data;
+        DEBUGHW("FE_SET_PROPERTY: set %d to %d, %d properties collected\n", hw->props[hw->num_props].cmd, hw->props[hw->num_props].u.data, hw->num_props+1);
+        ++hw->num_props;
+      } else {
+        WARN("FE_SET_PROPERTY properties limit (%d) exceeded.\n", DTV_IOCTL_MAX_MSGS);
+        ret = -1;
+      } break;
+    default:
+      WARN("FE_SET_PROPERTY unknown property %d\n", prop->cmd);
+      ret = -1;
+  }
+#endif
   return ret;
 }
 
