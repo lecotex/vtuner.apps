@@ -1,3 +1,8 @@
+r67
+Added Support for FE_SET_PROPERTY
+- not compatible with older versions !
+- mipsel server is untested, will not work if image isn't recent
+
 ------------------------------------------------------------------------
 r64
 - fix client failure if only one mode is given
