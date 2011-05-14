@@ -13,7 +13,10 @@ typedef enum {
         DMX_TAP_PES = DMX_PES_OTHER, /* for backward binary compat. */
 } dmx_tap_type_t;
 
-#if DVB_API_VERSION < 5
+#if DVB_API_VERSION > 3
+  #define DMX_ADD_PID             _IOW('o', 51, __u16)
+  #define DMX_REMOVE_PID          _IOW('o', 52, __u16)
+#else
   #define DMX_ADD_PID              _IO('o', 51)
   #define DMX_REMOVE_PID           _IO('o', 52)
 #endif
@@ -80,10 +83,17 @@ int hw_init(vtuner_hw_t* hw, int adapter, int frontend, int demux, int dvr) {
   }
 */
   struct dmx_pes_filter_params flt;
-  flt.pid = -1;
   flt.input = DMX_IN_FRONTEND;
+#if DVB_API_VERSION > 3
+  // FIXME: no useful PID known yet, give 1 to have at least a valid
+  flt.pid = 1;
+  flt.output  = DMX_OUT_TSDEMUX_TAP;
+  flt.pes_type = DMX_PES_OTHER;
+#else
+  flt.pid = -1;
   flt.output = DMX_OUT_TAP;
   flt.pes_type = DMX_TAP_TS;
+#endif
   flt.flags = 0;
   if(ioctl(hw->demux_fd, DMX_SET_PES_FILTER, &flt) != 0) {
     ERROR("DMX_SET_PES_FILTER failed for %s - %m\n", devstr);
@@ -178,6 +188,9 @@ int hw_set_property(vtuner_hw_t* hw, struct dtv_property* prop) {
     case DTV_PILOT:
     case DTV_ROLLOFF:
     case DTV_DISEQC_SLAVE_REPLY:
+    case DTV_FE_CAPABILITY_COUNT:
+    case DTV_FE_CAPABILITY:
+    case DTV_DELIVERY_SYSTEM:
       if(hw->num_props < DTV_IOCTL_MAX_MSGS) {
         hw->props[hw->num_props].cmd = prop->cmd;
         hw->props[hw->num_props].u.data = prop->u.data;
@@ -247,7 +260,11 @@ int hw_pidlist(vtuner_hw_t* hw, __u16* pidlist) {
         if(hw->pids[i] == pidlist[j])
           break;
       if(j == 30) {
-        if(ioctl(hw->demux_fd, DMX_REMOVE_PID, hw->pids[i]) != 0) {
+        #if DVB_API_VERSION > 3
+          if(ioctl(hw->demux_fd, DMX_REMOVE_PID, &hw->pids[i]) != 0) {
+        #else
+          if(ioctl(hw->demux_fd, DMX_REMOVE_PID, hw->pids[i]) != 0) {
+        #endif
           WARN("DMX_REMOVE_PID %d failed - %m\n", hw->pids[i]);
         }
 //        DEBUGHW("remove pid %d\n", hw->pids[i]);
@@ -260,7 +277,11 @@ int hw_pidlist(vtuner_hw_t* hw, __u16* pidlist) {
         if(pidlist[i] == hw->pids[j])
           break;
       if(j == 30) {
-        if(ioctl(hw->demux_fd, DMX_ADD_PID, pidlist[i]) != 0) {
+	#if DVB_API_VERSION > 3
+          if(ioctl(hw->demux_fd, DMX_ADD_PID, &pidlist[i]) != 0) {
+        #else
+          if(ioctl(hw->demux_fd, DMX_ADD_PID, pidlist[i]) != 0) {
+        #endif
           WARN("DMX_ADD_PID %d failed - %m\n", pidlist[i]);
         }
 //        DEBUGHW("add pid %d\n",  pidlist[i]);
