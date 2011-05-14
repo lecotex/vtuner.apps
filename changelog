@@ -1,3 +1,8 @@
+r69
+fixed issue with: error: DMX_START failed 
+reported by joergm6 on 10-Mar-2011
+only vtunerd.mipsel effected, compatible vith client from r67 on
+
 r68
 fixed client version numbering
 
