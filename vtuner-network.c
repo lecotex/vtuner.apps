@@ -332,8 +332,8 @@ void ntoh_vtuner_net_message(vtuner_net_message_t* netmsg, vtuner_type_t type) {
       break;
     case MSG_SET_PROPERTY: 
     case MSG_GET_PROPERTY: 
-      HTONLc( netmsg->u.vtuner.body, prop.u.data );
-      HTONLc( netmsg->u.vtuner.body, prop.cmd );
+      NTOHLc( netmsg->u.vtuner.body, prop.u.data );
+      NTOHLc( netmsg->u.vtuner.body, prop.cmd );
       break;
     case MSG_DISCOVER:
       NTOHSc( netmsg->u.discover, port);

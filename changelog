@@ -1,3 +1,9 @@
+r70
+fixed the following issue:
+http://www.i-have-a-dreambox.com/wbb2/thread.php?postid=1526470#post1526470
+Thanks to H2Deetoo for forwarding the fix.
+You have to update both, client and server.
+
 r69
 fixed issue with: error: DMX_START failed 
 reported by joergm6 on 10-Mar-2011
