@@ -1,3 +1,8 @@
+r71
+Fixed a issue with DVB-C tuner capabilites, DVB-C should now work again.
+thanks to H2Deetoo, Ghost and Obi for identifying this.
+only the client is changed, compatible with servers from r70 on.
+
 r70
 fixed the following issue:
 http://www.i-have-a-dreambox.com/wbb2/thread.php?postid=1526470#post1526470
