@@ -222,7 +222,7 @@ struct dvb_frontend_info fe_info_dvbc = {
   .symbol_rate_max       = 7230000,
   .symbol_rate_tolerance = 0,
   .notifier_delay        = 0,
-  .caps                  = 0x1
+  .caps                  = FE_CAN_INVERSION_AUTO | FE_CAN_FEC_AUTO | FE_CAN_QPSK | FE_CAN_QAM_16 | FE_CAN_QAM_32 | FE_CAN_QAM_64 | FE_CAN_QAM_128 | FE_CAN_QAM_256 | FE_CAN_RECOVER
 };
 
 struct dvb_frontend_info fe_info_dvbt = {
