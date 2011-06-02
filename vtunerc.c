@@ -193,7 +193,7 @@ struct dvb_frontend_info fe_info_dvbs2 = {
   .symbol_rate_max       = 45000000,
   .symbol_rate_tolerance = 0,
   .notifier_delay        = 0,
-  .caps                  = 0x400006ff
+  .caps                  = FE_CAN_INVERSION_AUTO | FE_CAN_FEC_1_2 | FE_CAN_FEC_2_3 | FE_CAN_FEC_3_4 | FE_CAN_FEC_4_5 | FE_CAN_FEC_5_6 | FE_CAN_FEC_6_7 | FE_CAN_FEC_7_8 | FE_CAN_FEC_AUTO | FE_CAN_QPSK | FE_CAN_RECOVER //0x400006ff
 };
 
 
@@ -208,7 +208,7 @@ struct dvb_frontend_info fe_info_dvbs = {
   .symbol_rate_max       = 45000000,
   .symbol_rate_tolerance = 500,
   .notifier_delay        = 0,
-  .caps                  = 0x6af
+  .caps                  = FE_CAN_INVERSION_AUTO | FE_CAN_FEC_1_2 | FE_CAN_FEC_2_3 | FE_CAN_FEC_3_4 | FE_CAN_FEC_5_6 | FE_CAN_FEC_7_8 | FE_CAN_FEC_AUTO | FE_CAN_QPSK //0x6af
 };
 
 struct dvb_frontend_info fe_info_dvbc = {
@@ -236,7 +236,7 @@ struct dvb_frontend_info fe_info_dvbt = {
   .symbol_rate_max       = 0,
   .symbol_rate_tolerance = 0,
   .notifier_delay        = 0,
-  .caps                  = 0xb2eaf
+  .caps                  = FE_CAN_INVERSION_AUTO | FE_CAN_FEC_1_2 | FE_CAN_FEC_2_3 | FE_CAN_FEC_3_4 | FE_CAN_FEC_5_6 | FE_CAN_FEC_7_8 | FE_CAN_FEC_AUTO | FE_CAN_QPSK | FE_CAN_QAM_16 | FE_CAN_QAM_64 | FE_CAN_QAM_AUTO | FE_CAN_TRANSMISSION_MODE_AUTO | FE_CAN_GUARD_INTERVAL_AUTO //0xb2eaf
 };
 
 #define MAX_NUM_VTUNER_MODES 3
