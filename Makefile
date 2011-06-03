@@ -23,6 +23,9 @@ sh4:
 ipkg:   mipsel
 	$(MAKE) -C pkgs ipkg
     	
+arm:         
+	$(MAKE) -C build/arm
+
 	
 clean:
 	$(MAKE) -C build/i686 clean
@@ -32,3 +35,4 @@ clean:
 	$(MAKE) -C build/sh4 clean
 	$(MAKE) -C build/mipsel15 clean
 	$(MAKE) -C pkgs clean
+	$(MAKE) -C build/arm clean

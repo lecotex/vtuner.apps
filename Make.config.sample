@@ -19,3 +19,8 @@ CC-db2=/stuff/dm600pvr/build/tmp/cross/bin/powerpc-linux-gcc
 
 # define the CC for target sh4
 CC-sh4=/opt/STM/STLinux-2.3/devkit/sh4/bin/sh4-linux-gcc
+
+# define the CC for target arm
+CC-arm=arm-none-linux-gnueabi-gcc
+STRIP-arm=arm-none-linux-gnueabi-strip
+INCLUDE-arm=-I/home/hop/nessie/2.6.22/include
