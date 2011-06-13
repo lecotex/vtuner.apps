@@ -1,2 +1,0 @@
-You have to rename Make.config.sample to Make.config and edit to match
-you local build environment.
