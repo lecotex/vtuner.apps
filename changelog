@@ -1,15 +1,17 @@
 2011-06-13(rmie): 
-ported build system to use autotool's. If you want to compile native (most
-likely if you want to run it on  i686 linux)
+ported build system to use autotool's, run autogen.sh first to create
+configure script.
+
+If you want to compile native (most likely if you want to run it on i686 linux)
   ./configure --with-driver=DVB
   make
 
 A few cross compile examples :
-  mpisel: ./configure --with-driver=DMM3 --target=mipsel-oe-linux
-  ppc:    ./configure --with-driver=DMM2 --target=powerpc-linux-gcc
-  db2:	  ./configure --with-driver=DVB  --target=mipsel-oe-linux
-  sh4:    ./configure --with-driver=DVB  --target=sh4-linux
-  arm:    ./configure --with-driver=DVB  --target=arm-none-linux-gnueabi
+  mpisel: ./configure --with-driver=DMM3 --host=mipsel-oe-linux
+  ppc:    ./configure --with-driver=DMM2 --host=powerpc-linux-gcc
+  db2:	  ./configure --with-driver=DVB  --host=mipsel-oe-linux
+  sh4:    ./configure --with-driver=DVB  --host=sh4-linux
+  arm:    ./configure --with-driver=DVB  --host=arm-none-linux-gnueabi
 Note: Make sure the compilers can be found within your $PATH.
 
 r71
