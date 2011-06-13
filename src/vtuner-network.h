@@ -1,7 +1,8 @@
 #ifndef _VTUNERNETWORK_H_
 #define _VTUNERNETWORK_H_
 
-#if HAVE_DVB_API_VERSION < 3
+#if HAME_DVB_API_VERSION < 3
+  #define DVB_API_VERSION 2
   #include <ost/frontend.h>
   #include <ost/dmx.h>
   #include <ost/sec.h>
@@ -178,7 +179,7 @@ typedef struct vtuner_net_message {
   } u;
 } vtuner_net_message_t;
 
-#if HAVE_DVB_API_VERSION < 3
+#if DVB_API_VERSION < 3
   void get_dvb_frontend_parameters( FrontendParameters*, vtuner_message_t*, vtuner_type_t);
   void set_dvb_frontend_parameters( vtuner_message_t*, FrontendParameters*, vtuner_type_t); 
 #else

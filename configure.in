@@ -1,0 +1,27 @@
+dnl Process this file with autoconf to produce a configure script.
+
+AC_PREREQ(2.61)
+
+AC_INIT([vtunerd], [1.0], [rmie@gmx.de])
+
+AC_CONFIG_MACRO_DIR([m4])
+AC_CONFIG_HEADERS([config.h])
+
+AM_INIT_AUTOMAKE([1.9 foreign])
+
+AC_PROG_CC
+
+AC_ARG_WITH(driver,
+        [  --with-driver=DMM2|DMM3|DVB [default=DVB]],
+        [driver="${withval}"],
+        [driver="DVB"])
+AM_CONDITIONAL([DMM2], [test x$driver = xDMM2])
+AM_CONDITIONAL([DMM3], [test x$driver = xDMM3])
+AM_CONDITIONAL([DVB], [test x$driver = xDVB])
+AC_SUBST(driver)
+
+AC_SEARCH_LIBS([clock_gettime],[rt posix4])
+AX_PTHREAD
+
+AC_CONFIG_FILES([Makefile src/Makefile])
+AC_OUTPUT

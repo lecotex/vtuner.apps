@@ -18,7 +18,7 @@
 
 
 
-#if HAVE_DVB_API_VERSION < 3
+#if DVB_API_VERSION < 3
 
   void get_dvb_frontend_parameters( FrontendParameters* hfe, vtuner_message_t* netmsg, vtuner_type_t type) {
     memset(hfe, 0, sizeof(hfe));
