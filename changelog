@@ -1,3 +1,17 @@
+2011-06-13(rmie): 
+ported build system to use autotool's. If you want to compile native (most
+likely if you want to run it on  i686 linux)
+  ./configure --with-driver=DVB
+  make
+
+A few cross compile examples :
+  mpisel: ./configure --with-driver=DMM3 --target=mipsel-oe-linux
+  ppc:    ./configure --with-driver=DMM2 --target=powerpc-linux-gcc
+  db2:	  ./configure --with-driver=DVB  --target=mipsel-oe-linux
+  sh4:    ./configure --with-driver=DVB  --target=sh4-linux
+  arm:    ./configure --with-driver=DVB  --target=arm-none-linux-gnueabi
+Note: Make sure the compilers can be found within your $PATH.
+
 r71
 Fixed a issue with DVB-C tuner capabilites, DVB-C should now work again.
 thanks to H2Deetoo, Ghost and Obi for identifying this.

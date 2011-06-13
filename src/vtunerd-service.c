@@ -284,7 +284,7 @@ void *session_worker(void *data) {
 
   int listen_fd, ctrl_fd;
 
-  #if HAVE_DVB_API_VERSION < 3
+  #if DVB_API_VERSION < 3
     FrontendParameters fe_params;
   #else
     struct dvb_frontend_parameters fe_params;

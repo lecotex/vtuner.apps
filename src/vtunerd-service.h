@@ -7,7 +7,7 @@
 
 #include "vtuner-network.h"
 
-#if HAVE_DVB_API_VERSION < 3
+#if DVB_API_VERSION < 3
   #include "vtuner-dmm-2.h"
 #else
   #ifdef HAVE_DREAMBOX_HARDWARE
