@@ -18,30 +18,29 @@ int use_syslog = 1;
 __thread char msg[MAX_MSGSIZE];
 
 void write_message(int level, const char* fmt, ... ) {
-  if( level & dbg_level  ) {
+	if( level & dbg_level  ) {
 
-    char tn[MAX_MSGSIZE];
-    va_list ap;
-    va_start(ap, fmt);
-    vsnprintf(tn, sizeof(tn), fmt, ap);
-    va_end(ap);
-    strncat(msg, tn, sizeof(msg));
+		char tn[MAX_MSGSIZE];
+		va_list ap;
+		va_start(ap, fmt);
+		vsnprintf(tn, sizeof(tn), fmt, ap);
+		va_end(ap);
+		strncat(msg, tn, sizeof(msg));
 
-    if(use_syslog) {
-      int priority;
-      switch(level) {
-        case 0: priority=LOG_ERR; break;
-        case 1: priority=LOG_WARNING; break;
-        case 2: priority=LOG_INFO; break;
-        default: priority=LOG_DEBUG; break;
-      }
-      syslog(priority, "%s", msg);
-    } else {
-      fprintf(stderr, "%s", msg);
-    }
-  }
-
-  strncpy(msg, "", sizeof(msg));
+		if(use_syslog) {
+			int priority;
+			switch(level) {
+				case 0: priority=LOG_ERR; break;
+				case 1: priority=LOG_WARNING; break;
+				case 2: priority=LOG_INFO; break;
+				default: priority=LOG_DEBUG; break;
+			}
+			syslog(priority, "%s", msg);
+		} else {
+			fprintf(stderr, "%s", msg);
+		}
+	}
+	strncpy(msg, "", sizeof(msg));
 }
 
 static PyObject * log_message(int severity, PyObject *args) {
@@ -68,7 +67,7 @@ static PyObject * _py_DEBUG(PyObject *self, PyObject *args) {
 }
 
 static PyObject * _py_set_debuglevel(PyObject *self, PyObject *args) {
-    char *sdbg;
+	char *sdbg;
 	if (!PyArg_ParseTuple(args, "s", &sdbg)) return NULL;
 	dbg_level=atoi(sdbg);
 	DEBUG("_py_set_debuglevel %x\n", dbg_level);
@@ -76,9 +75,9 @@ static PyObject * _py_set_debuglevel(PyObject *self, PyObject *args) {
 }
 
 static PyObject * _py_set_usesyslog(PyObject *self, PyObject *args) {
-    if (!PyArg_ParseTuple(args, "i", &use_syslog)) return NULL;
+	if (!PyArg_ParseTuple(args, "i", &use_syslog)) return NULL;
 	DEBUG("_py_set_usesyslog %d\n", use_syslog);
-    return Py_BuildValue("i", 0);
+	return Py_BuildValue("i", 0);
 }
 
 static PyObject * _py_fetch_request(PyObject *self, PyObject *args) {
@@ -97,13 +96,13 @@ static PyObject * _py_fetch_request(PyObject *self, PyObject *args) {
 	 */
 	sleep(10);
 	Py_END_ALLOW_THREADS;
-    return Py_BuildValue("(sii)", ip, tuner_type, tuner_group);
+	return Py_BuildValue("(sii)", ip, tuner_type, tuner_group);
 }
 
 static PyObject * _py_run_worker(PyObject *self, PyObject *args) {
 	char *ip;
-    int *fe;
-    int *demux;
+	int *fe;
+	int *demux;
 
 	DEBUG("_py_run_worker %d\n");
 	if (!PyArg_ParseTuple(args, "sii", &ip, &fe, &demux)) return NULL;
@@ -119,19 +118,19 @@ static PyObject * _py_run_worker(PyObject *self, PyObject *args) {
 	 */
 	sleep(30);
 	Py_END_ALLOW_THREADS;
-    return Py_BuildValue("i", 0);
+	return Py_BuildValue("i", 0);
 }
 
 static PyMethodDef DreamtunerAPIMethodes[] = {
-    {"ERROR",          _py_ERROR,          METH_VARARGS, "provide common logging facility for python code"},
-    {"WARN",           _py_WARN,           METH_VARARGS, "provide common logging facility for python code"},
-    {"INFO",           _py_INFO,           METH_VARARGS, "provide common logging facility for python code"},
-    {"DEBUG",          _py_DEBUG,          METH_VARARGS, "provide common logging facility for python code"},
-    {"set_debuglevel", _py_set_debuglevel, METH_VARARGS, "set level for logged messages"},
-    {"set_usesyslog",  _py_set_usesyslog,  METH_VARARGS, "use syslog to log messages"},
-    {"fetch_request",  _py_fetch_request,  METH_VARARGS, "wait and return a request for a tuner"},
-    {"run_worker",     _py_run_worker,     METH_VARARGS, "serves a tuner request"},
-    {NULL, NULL, 0, NULL}
+	{"ERROR",          _py_ERROR,          METH_VARARGS, "provide common logging facility for python code"},
+	{"WARN",           _py_WARN,           METH_VARARGS, "provide common logging facility for python code"},
+	{"INFO",           _py_INFO,           METH_VARARGS, "provide common logging facility for python code"},
+	{"DEBUG",          _py_DEBUG,          METH_VARARGS, "provide common logging facility for python code"},
+	{"set_debuglevel", _py_set_debuglevel, METH_VARARGS, "set level for logged messages"},
+	{"set_usesyslog",  _py_set_usesyslog,  METH_VARARGS, "use syslog to log messages"},
+	{"fetch_request",  _py_fetch_request,  METH_VARARGS, "wait and return a request for a tuner"},
+	{"run_worker",     _py_run_worker,     METH_VARARGS, "serves a tuner request"},
+	{NULL, NULL, 0, NULL}
 };
 
 PyMODINIT_FUNC initDreamtunerAPI(void) {
