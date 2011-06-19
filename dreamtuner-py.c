@@ -94,7 +94,7 @@ static PyObject * _py_fetch_request(PyObject *self, PyObject *args) {
 	 * We can not answer the request at this point as we don't
 	 * know if a appropriate tuner is available and unused.
 	 */
-	sleep(10);
+	sleep(1);
 	Py_END_ALLOW_THREADS;
 	return Py_BuildValue("(sii)", ip, tuner_type, tuner_group);
 }
@@ -116,7 +116,7 @@ static PyObject * _py_run_worker(PyObject *self, PyObject *args) {
 	 * from another server. I'd guess that 10s should be enough to wait
 	 * for the initial connect from the client.
 	 */
-	sleep(30);
+	sleep(5);
 	Py_END_ALLOW_THREADS;
 	return Py_BuildValue("i", 0);
 }
