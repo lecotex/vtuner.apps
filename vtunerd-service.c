@@ -14,6 +14,7 @@
 #define xstr(s) str(s)
 #define str(s) #s
 
+static unsigned short discover_port = VTUNER_DISCOVER_PORT;
 void *discover_worker(void *data) {
   vtuner_session_t* session = (vtuner_session_t*)data;
 
@@ -465,11 +466,12 @@ error:
   INFO("controll thread terminated.\n");
 }
 
-void start_sessions(int nr, vtuner_session_t* sessions) {
+void start_sessions(int nr, unsigned short port, vtuner_session_t* sessions) {
 
   pthread_t worker[MAX_SESSIONS], discover;
   int i;
 
+  discover_port = port;
   for(i=0; i<nr; ++i) {
     pthread_create( &worker[i], NULL, session_worker, (void*)&sessions[i]);
   }
