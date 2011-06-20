@@ -10,6 +10,8 @@
 #include <string.h>
 #include <syslog.h>
 #include <signal.h>
+#include <sys/stat.h>
+#include <unistd.h>
 
 #include "vtuner-network.h"
 
@@ -22,6 +24,10 @@
 #define VTUNER_SET_FE_INFO 6
 #define VTUNER_SET_NUM_MODES 7 // up to two modes suppported now
 #define VTUNER_SET_MODES 8 // char[2][32]
+
+#ifndef VTUNER_CTRL_DEVNAME
+#define VTUNER_CTRL_DEVNAME "/dev/misc/vtuner0"
+#endif
 
 int dbg_level =  0x00ff;
 int use_syslog = 1;
@@ -265,10 +271,20 @@ int main(int argc, char **argv) {
   char *pext, *direct_ip = NULL;
   unsigned int groups = 0xFFFFFFFF; // means 'ANY group'
   unsigned int discover_port = VTUNER_DISCOVER_PORT;
+  int argadd = 0;
+  int vtuner_control;
+  struct stat st;
+  char *ctrl_devname = VTUNER_CTRL_DEVNAME;
 
-  int vtuner_control = open("/dev/misc/vtuner0", O_RDWR);
+  // first option tuple can be control device name (ie: -c /dev/vtunerc0)
+  if(argc > 2 && !strcmp(argv[1],"-c") && !stat(argv[2], &st) && S_ISCHR(st.st_mode)) {
+    ctrl_devname = argv[2];
+    argadd = 2;
+  }
+
+  vtuner_control = open(ctrl_devname, O_RDWR);
   if (vtuner_control < 0) {
-    perror("/dev/misc/vtuner0");
+    perror(ctrl_devname);
     return 1;
   }
 
@@ -301,7 +317,7 @@ int main(int argc, char **argv) {
       ERROR("more than %i modes given\n", MAX_NUM_VTUNER_MODES);
       exit(1);
     }
-    for(i=1; i<argc; ++i) {
+    for(i=1+argadd; i<argc; ++i) {
       if(strncmp(argv[i],"-s2",strlen("-s2"))==0) {
         types[modes] = VT_S | VT_S2;
         vtuner_info[modes] = &fe_info_dvbs2;
