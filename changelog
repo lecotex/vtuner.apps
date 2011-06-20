@@ -1,3 +1,15 @@
+r80
+Added direct connect option. By expanding dvb-s/t/c command line option:
+	-<dvb-system-abbrev>[:<ip-address>[:<port>[:<group-mask>]]]
+Warning: group masking is not working yet!
+
+r73
+Added ARM target
+
+r72
+Code visibility change: caps binary values expanded to its symbolic values
+(or-ed together)
+
 r71
 Fixed a issue with DVB-C tuner capabilites, DVB-C should now work again.
 thanks to H2Deetoo, Ghost and Obi for identifying this.

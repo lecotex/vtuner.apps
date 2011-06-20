@@ -117,6 +117,9 @@ typedef struct discover_worker_data {
   struct sockaddr_in server_addr;
   discover_worker_status_t status;
   vtuner_net_message_t msg;
+  char *direct_ip;
+  __u32 groups;
+  unsigned short port;
 } discover_worker_data_t;
 
 int *discover_worker(void *d) {
@@ -126,7 +129,8 @@ int *discover_worker(void *d) {
   data->status = DWS_RUNNING;
   int discover_fd = socket(PF_INET, SOCK_DGRAM, IPPROTO_UDP);
   int broadcast = -1;
-  setsockopt(discover_fd, SOL_SOCKET, SO_BROADCAST, &broadcast, sizeof(broadcast)); 
+  if(!data->direct_ip)
+    setsockopt(discover_fd, SOL_SOCKET, SO_BROADCAST, &broadcast, sizeof(broadcast)); 
   
   struct sockaddr_in discover_addr;
   memset(&discover_addr, 0, sizeof(discover_addr));
@@ -143,8 +147,17 @@ int *discover_worker(void *d) {
 
   struct sockaddr_in  msg_addr;
   msg_addr.sin_family = AF_INET;
-  msg_addr.sin_addr.s_addr = htonl(INADDR_BROADCAST);
-  msg_addr.sin_port = htons(0x9989);
+  if(data->direct_ip) {
+    struct in_addr dirip;
+    if(!inet_aton(data->direct_ip, &msg_addr.sin_addr)) {
+      ERROR("can't parse direct ip\n");
+      close(discover_fd);
+      data->status = DWS_FAILED;
+      goto discover_worker_end;
+    }
+  } else
+    msg_addr.sin_addr.s_addr = htonl(INADDR_BROADCAST);
+  msg_addr.sin_port = htons(data->port);
 
   memset(&data->msg, 0, sizeof(data->msg));
   data->msg.msg_type = MSG_DISCOVER;
@@ -154,7 +167,7 @@ int *discover_worker(void *d) {
 
   int timeo = 100;
   do {
-    INFO("Sending discover message for device types %x\n", data->types);
+    INFO("Sending %sdiscover message for device types %x\n", data->direct_ip ? "direct " : "", data->types);
     sendto(discover_fd, &data->msg, sizeof(data->msg), 0, (struct sockaddr *) &msg_addr, sizeof(msg_addr));
     struct pollfd pfd[] = { { discover_fd, POLLIN, 0 } }; 
     while( data->msg.u.discover.port == 0 &&
@@ -249,6 +262,9 @@ int main(int argc, char **argv) {
   char ctypes[MAX_NUM_VTUNER_MODES][32] = {"none", "none", "none"};
   struct dvb_frontend_info* vtuner_info[MAX_NUM_VTUNER_MODES];
   int types[MAX_NUM_VTUNER_MODES];
+  char *pext, *direct_ip = NULL;
+  unsigned int groups = 0xFFFFFFFF; // means 'ANY group'
+  unsigned int discover_port = VTUNER_DISCOVER_PORT;
 
   int vtuner_control = open("/dev/misc/vtuner0", O_RDWR);
   if (vtuner_control < 0) {
@@ -286,27 +302,27 @@ int main(int argc, char **argv) {
       exit(1);
     }
     for(i=1; i<argc; ++i) {
-      if(strcmp(argv[i],"-s")==0) {
-	types[modes] = VT_S | VT_S2;
-        vtuner_info[modes] = &fe_info_dvbs;
-        strncpy(ctypes[modes],"DVB-S",sizeof(ctypes[0]));
-      } else if(strcmp(argv[i],"-s2")==0) {
+      if(strncmp(argv[i],"-s2",strlen("-s2"))==0) {
         types[modes] = VT_S | VT_S2;
         vtuner_info[modes] = &fe_info_dvbs2;
         strncpy(ctypes[modes],"DVB-S2",sizeof(ctypes[0]));
-      } else if(strcmp(argv[i],"-S")==0) {
-        types[modes] = VT_S;
-        vtuner_info[modes] = &fe_info_dvbs;
-        strncpy(ctypes[modes],"DVB-S",sizeof(ctypes[0]));
-      } else if(strcmp(argv[i],"-S2")==0) {
+      } else if(strncmp(argv[i],"-S2",strlen("-S2"))==0) {
         types[modes] = VT_S2;
         vtuner_info[modes] = &fe_info_dvbs2;
         strncpy(ctypes[modes],"DVB-S2",sizeof(ctypes[0]));
-      } else if(strcmp(argv[i],"-c")==0) {
+      } else if(strncmp(argv[i],"-s",strlen("-s"))==0) {
+	types[modes] = VT_S | VT_S2;
+        vtuner_info[modes] = &fe_info_dvbs;
+        strncpy(ctypes[modes],"DVB-S",sizeof(ctypes[0]));
+      } else if(strncmp(argv[i],"-S",strlen("-S"))==0) {
+        types[modes] = VT_S;
+        vtuner_info[modes] = &fe_info_dvbs;
+        strncpy(ctypes[modes],"DVB-S",sizeof(ctypes[0]));
+      } else if(strncmp(argv[i],"-c",strlen("-c"))==0) {
         types[modes] = VT_C;
         vtuner_info[modes] = &fe_info_dvbc;
         strncpy(ctypes[modes],"DVB-C",sizeof(ctypes[0]));
-      } else if(strcmp(argv[i],"-t")==0) {
+      } else if(strncmp(argv[i],"-t",strlen("-t"))==0) {
         types[modes] = VT_T;
         vtuner_info[modes] = &fe_info_dvbt;
         strncpy(ctypes[modes],"DVB-T",sizeof(ctypes[0]));
@@ -315,6 +331,24 @@ int main(int argc, char **argv) {
         exit(1);
       }
       DEBUGMAIN("added frontend mode %s as mode %d, searching for tuner types %x\n", ctypes[modes], modes, types[modes]);
+
+      // -S2:192.168.1.11:3333:0020 or -S2:192.168.1.11 or -S2:192.168.1.11:3333 or -S2:::0020
+      if((pext = strchr(argv[i],':'))) {
+        char *pport;
+	if((pport = strchr(pext+1,':'))) {
+          int nvals;
+          *pport = '\0';
+	  if(strlen(pext+1))
+            direct_ip = strdup(pext+1);
+	  // num
+	  if(strlen(pport+1) & pport[1] != ':')
+	    sscanf(pport+1,"%d:%x",&discover_port,&groups);
+          else
+	    sscanf(pport+2,"%x",&groups);
+	}
+        DEBUGMAIN("extra connection params: ip='%s' port=%d groups=%x\n", direct_ip ? : "<null>", discover_port, groups);
+      }
+
       ++modes;
     }
 
@@ -335,6 +369,9 @@ int main(int argc, char **argv) {
 
   discover_worker_data_t dsd;
   dsd.status = DWS_IDLE;
+  dsd.direct_ip = direct_ip;
+  dsd.groups = groups;
+  dsd.port = discover_port;
   vtuner_status_t vts = VTS_DISCONNECTED;
   long values_received = 0;
   vtuner_update_t values;

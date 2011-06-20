@@ -13,6 +13,8 @@
 
 #include "vtuner-utils.h"
 
+#define VTUNER_DISCOVER_PORT 0x9989
+
 typedef enum vtuner_type {
   VT_S = 0x01,
   VT_C = 0x02,
