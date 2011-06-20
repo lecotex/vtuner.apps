@@ -1,3 +1,7 @@
+r81
+vtunerc: first option tuple can be control device name
+(ie: ./vtunerc.mipsel -c /dev/vtunerc0)
+
 r80
 Added direct connect option. By expanding dvb-s/t/c command line option:
 	-<dvb-system-abbrev>[:<ip-address>[:<port>[:<group-mask>]]]
