@@ -39,6 +39,6 @@ typedef struct vtuner_session {
 #define DEBUGSRVC(msg, ...) append_message(0x0040, msg, ## __VA_ARGS__)
 
 void *discover_worker(void*);
-void start_sessions(int, vtuner_session_t*);
+void start_sessions(int,unsigned short,vtuner_session_t*);
 
 #endif

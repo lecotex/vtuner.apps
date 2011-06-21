@@ -1,3 +1,6 @@
+r82
+Bugfix: fixed forgotten checkins which prevent vtunerd from being built
+
 r81
 vtunerc: first option tuple can be control device name
 (ie: ./vtunerc.mipsel -c /dev/vtunerc0)

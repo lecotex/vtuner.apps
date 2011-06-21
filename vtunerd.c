@@ -53,5 +53,5 @@ int main(int argc, char **argv) {
     }
   }
 
-  start_sessions(hw_count, session);
+  start_sessions(hw_count, VTUNER_DISCOVER_PORT, session);
 }
