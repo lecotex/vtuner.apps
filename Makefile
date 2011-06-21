@@ -3,7 +3,7 @@
 all: i686 mipsel ppc db2 sh4 mipsel15 ipkg
 
 i686:
-	$(MAKE) -C build/i686
+	$(MAKE) -C build/i686 all
 	
 ppc: 	
 	$(MAKE) -C build/ppc
@@ -12,7 +12,7 @@ db2:
 	$(MAKE) -C build/db2
 
 mipsel: 	
-	$(MAKE) -C build/mipsel
+	$(MAKE) -C build/mipsel all
 
 mipsel15:         
 	$(MAKE) -C build/mipsel15

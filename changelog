@@ -1,3 +1,6 @@
+r83
+Added compilation vtunerc for i686 arch
+
 r82
 Bugfix: fixed forgotten checkins which prevent vtunerd from being built
 
