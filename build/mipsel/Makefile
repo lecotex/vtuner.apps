@@ -11,9 +11,6 @@ all: ../../dist/$(ARCH)/vtunerd.$(ARCH) ../../dist/$(ARCH)/vtunerc.$(ARCH) ../..
 
 -include ../../Make.rules
 
-../../dist/$(ARCH)/vtunerc.$(ARCH): ../../vtunerc.c vtuner-network.o vtuner-utils.o
-	$(CC) $(CFLAGS) $(LDFLAGS) -o ../../dist/$(ARCH)/vtunerc.$(ARCH) vtuner-network.o vtuner-utils.o ../../vtunerc.c
-	
 vtuner-dmm-3.o: ../../vtuner-dmm-3.c ../../vtuner-dmm-3.h 
 	$(CC) $(CFLAGS) -c -o vtuner-dmm-3.o ../../vtuner-dmm-3.c
 
