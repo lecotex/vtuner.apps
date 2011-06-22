@@ -276,10 +276,15 @@ int main(int argc, char **argv) {
   struct stat st;
   char *ctrl_devname = VTUNER_CTRL_DEVNAME;
 
-  // first option tuple can be control device name (ie: -c /dev/vtunerc0)
-  if(argc > 2 && !strcmp(argv[1],"-c") && !stat(argv[2], &st) && S_ISCHR(st.st_mode)) {
-    ctrl_devname = argv[2];
-    argadd = 2;
+  // first option tuple can be control device name (ie: -d /dev/vtunerc0)
+  if(argc > 2 && !strcmp(argv[1],"-d")) {
+    if(!stat(argv[2], &st) && S_ISCHR(st.st_mode)) {
+      ctrl_devname = argv[2];
+      argadd = 2;
+    } else {
+      ERROR("can't open control device: %s\n", argv[2]);
+      exit(1);
+    }
   }
 
   vtuner_control = open(ctrl_devname, O_RDWR);
