@@ -193,4 +193,32 @@ void hton_vtuner_net_message( vtuner_net_message_t*, vtuner_type_t);
 void ntoh_vtuner_net_message( vtuner_net_message_t*, vtuner_type_t); 
 
 void print_vtuner_net_message(vtuner_net_message_t*);
+
+#ifdef HAVE_DREAMBOX_HARDWARE
+/* original dreambox vtuner API */
+#define VTUNER_CTRL_DEVNAME "/dev/misc/vtuner0"
+#define PVR_FLUSH_BUFFER    0
+#define VTUNER_GET_MESSAGE  1
+#define VTUNER_SET_RESPONSE 2
+#define VTUNER_SET_NAME     3
+#define VTUNER_SET_TYPE     4
+#define VTUNER_SET_HAS_OUTPUTS 5
+#define VTUNER_SET_FE_INFO 6
+#define VTUNER_SET_NUM_MODES 7 // up to two modes suppported now
+#define VTUNER_SET_MODES 8 // char[2][32]
+#else
+/* open source vtunerc API */
+/* WARNING: Unstable! Is going to be refactored, current version is mostly 1:1 of dreambox' original */
+#define VTUNER_CTRL_DEVNAME "/dev/vtunerc0"
+#define VTUNER_MAJOR		226
+#define VTUNER_GET_MESSAGE	_IOR(VTUNER_MAJOR, 1, struct vtuner_message *)
+#define VTUNER_SET_RESPONSE 	_IOW(VTUNER_MAJOR, 2, struct vtuner_message *)
+#define VTUNER_SET_NAME		_IOW(VTUNER_MAJOR, 3, char *)
+#define VTUNER_SET_TYPE		_IOW(VTUNER_MAJOR, 4, char *)
+#define VTUNER_SET_HAS_OUTPUTS	_IOW(VTUNER_MAJOR, 5, char *)
+#define VTUNER_SET_FE_INFO	_IOW(VTUNER_MAJOR, 6, struct dvb_frontend_info *)
+#define VTUNER_SET_NUM_MODES	_IOW(VTUNER_MAJOR, 7, int)
+#define VTUNER_SET_MODES	_IOW(VTUNER_MAJOR, 8, char *)
+#endif
+
 #endif
