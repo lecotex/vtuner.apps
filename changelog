@@ -1,3 +1,6 @@
+r86
+vtunerc only: swiched to opensource vtunerc.ko driver API for all but mipsel archs
+
 r85
 fixed package version and released new binaries
 

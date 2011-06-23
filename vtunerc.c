@@ -15,20 +15,6 @@
 
 #include "vtuner-network.h"
 
-#define PVR_FLUSH_BUFFER    0
-#define VTUNER_GET_MESSAGE  1
-#define VTUNER_SET_RESPONSE 2
-#define VTUNER_SET_NAME     3
-#define VTUNER_SET_TYPE     4
-#define VTUNER_SET_HAS_OUTPUTS 5
-#define VTUNER_SET_FE_INFO 6
-#define VTUNER_SET_NUM_MODES 7 // up to two modes suppported now
-#define VTUNER_SET_MODES 8 // char[2][32]
-
-#ifndef VTUNER_CTRL_DEVNAME
-#define VTUNER_CTRL_DEVNAME "/dev/misc/vtuner0"
-#endif
-
 int dbg_level =  0x00ff;
 int use_syslog = 1;
 
