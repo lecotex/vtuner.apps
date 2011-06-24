@@ -1,3 +1,6 @@
+r87 
+add Plugin for client config
+
 r86
 vtunerc only: swiched to opensource vtunerc.ko driver API for all but mipsel archs
 
