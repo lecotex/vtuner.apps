@@ -1,9 +1,12 @@
 -include ../../Make.config
 
-all: i686 mipsel ppc db2 sh4 mipsel15 ipkg
+all: i686 x86_64 mipsel ppc db2 sh4 mipsel15 ipkg
 
 i686:
 	$(MAKE) -C build/i686 all
+	
+x86_64:
+	$(MAKE) -C build/x86_64 all
 	
 ppc: 	
 	$(MAKE) -C build/ppc
@@ -29,6 +32,7 @@ arm:
 	
 clean:
 	$(MAKE) -C build/i686 clean
+	$(MAKE) -C build/x86_64 clean
 	$(MAKE) -C build/ppc clean
 	$(MAKE) -C build/db2 clean
 	$(MAKE) -C build/mipsel clean
