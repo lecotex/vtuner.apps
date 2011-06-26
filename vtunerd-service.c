@@ -8,6 +8,7 @@
 #include <fcntl.h>
 #include <netinet/in.h>
 #include <netinet/tcp.h>
+#include <signal.h>
 
 #include "vtunerd-service.h"
 
@@ -15,52 +16,24 @@
 #define str(s) #s
 
 static unsigned short discover_port = VTUNER_DISCOVER_PORT;
-void *discover_worker(void *data) {
-  vtuner_session_t* session = (vtuner_session_t*)data;
 
-  struct sockaddr_in discover_so, client_so;
-  int clientlen = sizeof(client_so);
-  int discover_fd;
-  vtuner_net_message_t msg;
-  int i;
+int discover_fd = 0;
 
-  INFO("autodiscver thread started.\n");
+int init_vtuner_service() {
+	struct sockaddr_in discover_so;
 
-  memset(&discover_so, 0, sizeof(discover_so));
-  discover_so.sin_family = AF_INET;
-  discover_so.sin_addr.s_addr = htonl(INADDR_ANY);
-  discover_so.sin_port = htons(0x9989);
-  discover_fd = socket(PF_INET, SOCK_DGRAM, IPPROTO_UDP);
+	memset(&discover_so, 0, sizeof(discover_so));
+	discover_so.sin_family = AF_INET;
+	discover_so.sin_addr.s_addr = htonl(INADDR_ANY);
+	discover_so.sin_port = htons(0x9989);
+	discover_fd = socket(PF_INET, SOCK_DGRAM, IPPROTO_UDP);
 
-  if( bind(discover_fd, (struct sockaddr *) &discover_so, sizeof(discover_so)) < 0) {
-    ERROR("failed to bind autodiscover socket - %m\n");
-    exit(1);
-  } else {
-    INFO("waiting for autodiscover packet ...\n");
-    while( recvfrom(discover_fd, &msg, sizeof(msg), 0, (struct sockaddr *) &client_so, &clientlen) >0 ) {
-      ntoh_vtuner_net_message(&msg, 0); // we don't care frontend type
-      if(msg.msg_type == MSG_DISCOVER ) {
-        INFO("received discover request\n");
-        for(i=0; i<MAX_SESSIONS; ++i) {
-          if(session[i].status == SST_IDLE) {
-            DEBUGSRV("Session %d device type %d is idle\n", i, session[i].hw.type);
-            if( session[i].hw.type & msg.u.discover.vtype )
-              break;
-          }
-        }
-        if( i==MAX_SESSIONS ) {
-          INFO("No idle device of type %d\n", msg.u.discover.vtype);
-        } else {
-          msg.u.discover.port = session[i].port;
-          msg.u.discover.tsdata_port = session[i].data_port;
-          hton_vtuner_net_message(&msg, 0);
-          if(sendto(discover_fd, &msg, sizeof(msg), 0, (struct sockaddr *)&client_so, sizeof(client_so))>0)
-            INFO("Answered discover request with session %d\n",i);
-        }
-      }
-      INFO("waiting for autodiscover packet ...\n");
-    }
-  }
+	if( bind(discover_fd, (struct sockaddr *) &discover_so, sizeof(discover_so)) < 0) {
+		ERROR("failed to bind autodiscover socket - %m\n");
+		return 0;
+	}
+	DEBUGSRV("autodiscover socket bound\n");
+	return 1;
 }
 
 int prepare_anon_stream_socket(struct sockaddr_in* addr, socklen_t* addrlen) {
@@ -137,16 +110,16 @@ void set_socket_options(int fd) {
 }
 
 typedef enum tsdata_worker_status {
-  DST_RUNNING,
-  DST_EXITING,
-  DST_FAILED,
-  DST_ENDED
+	DST_RUNNING,
+	DST_EXITING,
+	DST_FAILED,
+	DST_ENDED
 } tsdata_worker_status_t;
 
 typedef struct tsdata_worker_data {
-  int in;
-  int listen_fd;
-  tsdata_worker_status_t status;
+	int in;
+	int listen_fd;
+	tsdata_worker_status_t status;
 } tsdata_worker_data_t;
 
 void *tsdata_worker(void *d) {
@@ -230,7 +203,7 @@ void *tsdata_worker(void *d) {
     // send data in the same amount as received on the
     // client side, this should reduce syscalls on both
     // ends of the connection
-    if( pfd[1].revents & POLLOUT && \
+    if( (pfd[1].revents & POLLOUT) && \
         (w >= WMAX || (now - last_written > 100 && w > 0)) ) {
       w = w>WMAX?WMAX:w; // write the same amount of data the client prefers to read
       int wlen = write(out_fd,  buffer + bufptr_write, w);
@@ -276,206 +249,237 @@ error:
   data->status = DST_ENDED;
 }
 
-void *session_worker(void *data) {
-  vtuner_session_t *session = (vtuner_session_t*)data;
+int fetch_request(struct sockaddr_in *client_so, int *tuner_type, int *tuner_group) {
 
-  vtuner_net_message_t msg;
-  struct sockaddr_in ctrl_so, data_so;
-  socklen_t ctrllen = sizeof(ctrl_so), datalen = sizeof(data_so);
+	int clientlen = sizeof(*client_so);
+	vtuner_net_message_t msg;
 
-  int listen_fd, ctrl_fd;
+	if(discover_fd==0) {
+		if( ! init_vtuner_service()) return 0;
+	}
 
-  #if HAVE_DVB_API_VERSION < 3
-    FrontendParameters fe_params;
-  #else
-    struct dvb_frontend_parameters fe_params;
-  #endif
+	INFO("waiting for autodiscover packet ...\n");
+	if( recvfrom(discover_fd, &msg, sizeof(msg), 0, (struct sockaddr *) client_so, &clientlen) >0 ) {
+		ntoh_vtuner_net_message(&msg, 0); // we don't care frontend type
+		*tuner_type = msg.u.discover.vtype;
+		DEBUGSRV("request received\n");
+	} else {
+		return 0;
+	}
 
-  while(1) {
-    listen_fd = prepare_anon_stream_socket( &ctrl_so, &ctrllen);
-    if( listen_fd < 0)
-      goto error;
-
-    session->port = ntohs(ctrl_so.sin_port);
-    INFO("control socket bound to %d\n", session->port);
-
-    tsdata_worker_data_t dwd;
-    dwd.in = session->hw.streaming_fd;
-    dwd.listen_fd =  prepare_anon_stream_socket( &data_so, &datalen);
-    if( dwd.listen_fd < 0)
-      goto cleanup_listen;
-    dwd.status = DST_RUNNING;
-
-    pthread_t dwt;
-    pthread_create( &dwt, NULL, tsdata_worker, &dwd );
-
-    session->data_port = ntohs(data_so.sin_port);
-    session->status = SST_IDLE;
-
-    INFO("waiting for connect control:%d data:%d listen:%d\n", session->port, session->data_port, listen_fd);
-    ctrl_fd = accept(listen_fd, (struct sockaddr *)&ctrl_so, &ctrllen);
-    if(ctrl_fd<0) {
-      ERROR("accept failed on control socket - %m\n");
-      goto cleanup_listen_data;
-    }
-    // INFO("accecpted connect from: %s:%d\n", inet_ntoa(ctrl_so.sin_addr.s_addr), ntohs(ctrl_so.sin_port) );
-
-    session->status = SST_BUSY;
-    close(listen_fd);
-    listen_fd=0;
-    
-    set_socket_options(ctrl_fd);
-
-    // client sends SET_FRONTEND with invalid data after a SET_PROPERTY 
-    int skip_set_frontend = 0;
-
-    while(dwd.status == DST_RUNNING) {
-      struct pollfd pfd[] = { { ctrl_fd, POLLIN, 0 } };
-      
-      if(poll(pfd, 1, 750)==0) {
-        // nothing else to do, send current info to client
-        // strang problem with this feature
-        // fail over isn't working reliable
-        /*
-        hw_read_status( &session->hw, &msg.u.update.status);
-        ioctl(session->hw.frontend_fd, FE_READ_BER, &msg.u.update.ber);
-        ioctl(session->hw.frontend_fd, FE_READ_SIGNAL_STRENGTH, &msg.u.update.ss);
-        ioctl(session->hw.frontend_fd, FE_READ_SNR, &msg.u.update.snr);
-        ioctl(session->hw.frontend_fd, FE_READ_UNCORRECTED_BLOCKS, &msg.u.update.ucb); 
-        msg.msg_type = MSG_UPDATE;
-        hton_vtuner_net_message(&msg, session->hw.type);
-        write(ctrl_fd, &msg, sizeof(msg));
-        */
-      }  
-
-      if(pfd[0].revents & POLLIN) {
-        int rlen = read(ctrl_fd, &msg, sizeof(msg));
-        if(rlen<=0) goto cleanup_worker_thread;
-        int ret=0;
-        if( sizeof(msg) == rlen) {
-          ntoh_vtuner_net_message(&msg, session->hw.type);
-          if(msg.msg_type < 1023 )
-          switch (msg.u.vtuner.type) {
-            case MSG_SET_FRONTEND:
-              get_dvb_frontend_parameters( &fe_params, &msg.u.vtuner, session->hw.type);
-              if( skip_set_frontend ) {
-                // fake successful call
-                ret = 0;
-                DEBUGSRV("MSG_SET_FRONTEND skipped %d\n", skip_set_frontend);
-              } else {
-                ret=hw_set_frontend( &session->hw, &fe_params);
-                DEBUGSRV("MSG_SET_FRONTEND %d\n", skip_set_frontend);
-              }
-              break;
-            case MSG_GET_FRONTEND:
-              ret=hw_get_frontend( &session->hw, &fe_params);
-              set_dvb_frontend_parameters( &msg.u.vtuner, &fe_params, session->hw.type);
-              DEBUGSRV("MSG_GET_FRONTEND\n");
-              break;
-            case MSG_READ_STATUS:
-              ret=hw_read_status( &session->hw, &msg.u.vtuner.body.status);
-              DEBUGSRV("MSG_READ_STATUS: 0x%x\n", msg.u.vtuner.body.status);
-              break;
-            case MSG_READ_BER:
-              ret=ioctl(session->hw.frontend_fd, FE_READ_BER, &msg.u.vtuner.body.ber);
-              DEBUGSRV("MSG_READ_BER: %d\n", msg.u.vtuner.body.ber);
-              break;
-            case MSG_READ_SIGNAL_STRENGTH:
-              ret=ioctl(session->hw.frontend_fd, FE_READ_SIGNAL_STRENGTH, &msg.u.vtuner.body.ss);
-              DEBUGSRV("MSG_READ_SIGNAL_STRENGTH: %d\n", msg.u.vtuner.body.ss);
-              break;
-            case MSG_READ_SNR:
-              ret=ioctl(session->hw.frontend_fd, FE_READ_SNR, &msg.u.vtuner.body.snr);
-              DEBUGSRV("MSG_READ_SNR: %d\n", msg.u.vtuner.body.snr);
-              break;
-            case MSG_READ_UCBLOCKS:
-              ioctl(session->hw.frontend_fd, FE_READ_UNCORRECTED_BLOCKS, &msg.u.vtuner.body.ucb);
-              DEBUGSRV("MSG_READ_UCBLOCKS %d\n", msg.u.vtuner.body.ucb);
-              break;
-            case MSG_SET_TONE:
-              ret=hw_set_tone(&session->hw, msg.u.vtuner.body.tone);
-              DEBUGSRV("MSG_SET_TONE: 0x%x\n", msg.u.vtuner.body.tone);
-              break;
-            case MSG_SET_VOLTAGE:
-              ret=hw_set_voltage( &session->hw, msg.u.vtuner.body.voltage);
-              DEBUGSRV("MSG_SET_VOLTAGE: 0x%x\n", msg.u.vtuner.body.voltage);
-              break;
-            case MSG_ENABLE_HIGH_VOLTAGE:
-              //FIXME: need to know how information is passed to client
-              WARN("MSG_ENABLE_HIGH_VOLTAGE is not implemented: %d\n", msg.u.vtuner.body.pad[0]);
-              break;
-            case MSG_SEND_DISEQC_MSG: {
-              ret=hw_send_diseq_msg( &session->hw, &msg.u.vtuner.body.diseqc_master_cmd);
-              DEBUGSRV("MSG_SEND_DISEQC_MSG: \n");
-              break;
-            }
-            case MSG_SEND_DISEQC_BURST: {
-              ret=hw_send_diseq_burst( &session->hw, msg.u.vtuner.body.burst);
-              DEBUGSRV("MSG_SEND_DISEQC_BURST: %d %d\n", msg.u.vtuner.body.burst,ret);
-              break;
-            }
-	    case MSG_SET_PROPERTY: 
-              ret=hw_set_property( &session->hw, &msg.u.vtuner.body.prop);
-              // in case the call was successful, we have to skip all
-              // calls to SET_FRONTEND
-              skip_set_frontend = (ret == 0);
-              DEBUGSRV("MSG_SET_PROPERTY: %d %d %d\n", msg.u.vtuner.body.prop.cmd, skip_set_frontend, ret);
-              break;
-            case MSG_GET_PROPERTY: 
-              ret=hw_get_property( &session->hw, &msg.u.vtuner.body.prop);
-              DEBUGSRV("MSG_GET_PROPERTY: %d %d\n", msg.u.vtuner.body.prop.cmd,ret); 
-              break;
-            case MSG_PIDLIST:
-              ret=hw_pidlist( &session->hw, msg.u.vtuner.body.pidlist );
-              break;
-            default:
-              ERROR("unknown vtuner message %d\n", msg.u.vtuner.type);
-              goto cleanup_worker_thread;
-          }
-
-          if (msg.u.vtuner.type != MSG_PIDLIST ) {
-            if( ret!= 0 )
-              WARN("vtuner call failed, type:%d reason:%d\n", msg.u.vtuner.type, ret);
-            msg.u.vtuner.type = ret;
-            hton_vtuner_net_message(&msg, session->hw.type);
-            write(ctrl_fd, &msg, sizeof(msg));
-          }
-        }
-      }
-    }
-
-    cleanup_worker_thread:
-      dwd.status = DST_EXITING;
-      // FIXME: need a better way to know if thread has finished
-      DEBUGSRV("wait for TS data copy thread to terminate\n");
-      pthread_join( dwt, NULL);
-      DEBUGSRV("TS data copy thread terminated - %m\n");
-
-    cleanup_ctrl:
-      close(ctrl_fd);
-
-    cleanup_listen_data:
-      close(dwd.listen_fd);
-
-    cleanup_listen:
-      close(listen_fd);
- }
-
-error:
-  session->status = SST_UNKNOWN;
-  INFO("controll thread terminated.\n");
+	return 1;
 }
 
-void start_sessions(int nr, unsigned short port, vtuner_session_t* sessions) {
+int run_worker(int adapter, int fe, int demux, int dvr, struct sockaddr_in *client_so) {
 
-  pthread_t worker[MAX_SESSIONS], discover;
-  int i;
+	vtuner_net_message_t msg;
+	vtuner_hw_t hw;
 
-  discover_port = port;
-  for(i=0; i<nr; ++i) {
-    pthread_create( &worker[i], NULL, session_worker, (void*)&sessions[i]);
-  }
+	struct sockaddr_in ctrl_so, data_so;
+	socklen_t ctrllen = sizeof(ctrl_so), datalen = sizeof(data_so);
 
-  pthread_create( &discover, NULL, discover_worker, sessions);
-  pthread_join(discover, NULL);
+	int listen_fd, ctrl_fd;
+	int ex = 0;
+
+	#if HAVE_DVB_API_VERSION < 3
+		FrontendParameters fe_params;
+	#else
+		struct dvb_frontend_parameters fe_params;
+	#endif
+
+	if( ! hw_init(&hw, adapter, fe, demux, dvr)) goto cleanup_hw;
+
+	listen_fd = prepare_anon_stream_socket( &ctrl_so, &ctrllen);
+	if( listen_fd < 0)
+		goto cleanup_hw;
+
+	msg.u.discover.port = ntohs(ctrl_so.sin_port);
+	INFO("control socket bound to %d\n", msg.u.discover.port);
+
+	tsdata_worker_data_t dwd;
+	dwd.in = hw.streaming_fd;
+	dwd.listen_fd =  prepare_anon_stream_socket( &data_so, &datalen);
+	if( dwd.listen_fd < 0)
+		goto cleanup_listen;
+	dwd.status = DST_RUNNING;
+
+	pthread_t dwt;
+	pthread_create( &dwt, NULL, tsdata_worker, &dwd );
+
+	msg.u.discover.tsdata_port = ntohs(data_so.sin_port);
+	msg.msg_type = MSG_DISCOVER;
+	INFO("session prepared control:%d data:%d\n", msg.u.discover.port, msg.u.discover.tsdata_port);
+    hton_vtuner_net_message(&msg, 0);
+    if(sendto(discover_fd, &msg, sizeof(msg), 0, (struct sockaddr *)client_so, sizeof(*client_so))>0)
+    	DEBUGSRV("Answered discover request\n");
+    else {
+    	ERROR("Failed to sent discover packet - %m\n");
+    	goto cleanup_worker_thread;
+    }
+
+
+    struct pollfd afd[] = { { listen_fd, POLLIN, 0 } };
+    if(poll(afd,1,5000)) {
+    	ctrl_fd = accept(listen_fd, (struct sockaddr *)&ctrl_so, &ctrllen);
+    	if(ctrl_fd<0) {
+    		ERROR("accept failed on control socket - %m\n");
+    		goto cleanup_worker_thread;
+    	}
+    } else {
+    	INFO("no client connected. timeout\n");
+    	goto cleanup_worker_thread;
+    }
+
+	close(listen_fd);
+	listen_fd=0;
+
+	set_socket_options(ctrl_fd);
+
+	// client sends SET_FRONTEND with invalid data after a SET_PROPERTY
+	int skip_set_frontend = 0;
+
+	INFO("session running\n");
+	while(dwd.status == DST_RUNNING) {
+		struct pollfd pfd[] = { { ctrl_fd, POLLIN, 0 } };
+		poll(pfd, 1, 750);
+		if(pfd[0].revents & POLLIN) {
+			DEBUGSRV("control message received\n");
+			int rlen = read(ctrl_fd, &msg, sizeof(msg));
+			if(rlen<=0) goto cleanup_worker_thread;
+			int ret=0;
+			if( sizeof(msg) == rlen) {
+				ntoh_vtuner_net_message(&msg, hw.type);
+				if(msg.msg_type < 1023 ) {
+					switch (msg.u.vtuner.type) {
+						case MSG_SET_FRONTEND:
+							get_dvb_frontend_parameters( &fe_params, &msg.u.vtuner, hw.type);
+							if( skip_set_frontend ) {
+								ret = 0; // fake successful call
+								DEBUGSRV("MSG_SET_FRONTEND skipped %d\n", skip_set_frontend);
+							} else {
+								ret=hw_set_frontend(&hw, &fe_params);
+								DEBUGSRV("MSG_SET_FRONTEND %d\n", skip_set_frontend);
+							}
+							break;
+						case MSG_GET_FRONTEND:
+							ret=hw_get_frontend(&hw, &fe_params);
+							set_dvb_frontend_parameters(&msg.u.vtuner, &fe_params, hw.type);
+							DEBUGSRV("MSG_GET_FRONTEND\n");
+							break;
+						case MSG_READ_STATUS:
+							ret=hw_read_status(&hw, &msg.u.vtuner.body.status);
+							DEBUGSRV("MSG_READ_STATUS: 0x%x\n", msg.u.vtuner.body.status);
+							break;
+						case MSG_READ_BER:
+							ret=ioctl(hw.frontend_fd, FE_READ_BER, &msg.u.vtuner.body.ber);
+							DEBUGSRV("MSG_READ_BER: %d\n", msg.u.vtuner.body.ber);
+							break;
+						case MSG_READ_SIGNAL_STRENGTH:
+							ret=ioctl(hw.frontend_fd, FE_READ_SIGNAL_STRENGTH, &msg.u.vtuner.body.ss);
+							DEBUGSRV("MSG_READ_SIGNAL_STRENGTH: %d\n", msg.u.vtuner.body.ss);
+							break;
+						case MSG_READ_SNR:
+							ret=ioctl(hw.frontend_fd, FE_READ_SNR, &msg.u.vtuner.body.snr);
+							DEBUGSRV("MSG_READ_SNR: %d\n", msg.u.vtuner.body.snr);
+							break;
+						case MSG_READ_UCBLOCKS:
+							ioctl(hw.frontend_fd, FE_READ_UNCORRECTED_BLOCKS, &msg.u.vtuner.body.ucb);
+							DEBUGSRV("MSG_READ_UCBLOCKS %d\n", msg.u.vtuner.body.ucb);
+							break;
+						case MSG_SET_TONE:
+							ret=hw_set_tone(&hw, msg.u.vtuner.body.tone);
+							DEBUGSRV("MSG_SET_TONE: 0x%x\n", msg.u.vtuner.body.tone);
+							break;
+						case MSG_SET_VOLTAGE:
+							ret=hw_set_voltage(&hw, msg.u.vtuner.body.voltage);
+							DEBUGSRV("MSG_SET_VOLTAGE: 0x%x\n", msg.u.vtuner.body.voltage);
+							break;
+						case MSG_ENABLE_HIGH_VOLTAGE:
+							//FIXME: need to know how information is passed to client
+							WARN("MSG_ENABLE_HIGH_VOLTAGE is not implemented: %d\n", msg.u.vtuner.body.pad[0]);
+							break;
+						case MSG_SEND_DISEQC_MSG: {
+							ret=hw_send_diseq_msg(&hw, &msg.u.vtuner.body.diseqc_master_cmd);
+							DEBUGSRV("MSG_SEND_DISEQC_MSG: \n");
+							break;
+						}
+						case MSG_SEND_DISEQC_BURST: {
+							ret=hw_send_diseq_burst(&hw, msg.u.vtuner.body.burst);
+							DEBUGSRV("MSG_SEND_DISEQC_BURST: %d %d\n", msg.u.vtuner.body.burst,ret);
+							break;
+						}
+						case MSG_SET_PROPERTY:
+							ret=hw_set_property(&hw, &msg.u.vtuner.body.prop);
+							// in case the call was successful, we have to skip
+							// the next call to SET_FRONTEND
+							skip_set_frontend = (ret == 0);
+							DEBUGSRV("MSG_SET_PROPERTY: %d %d %d\n", msg.u.vtuner.body.prop.cmd, skip_set_frontend, ret);
+							break;
+						case MSG_GET_PROPERTY:
+							ret=hw_get_property(&hw, &msg.u.vtuner.body.prop);
+							DEBUGSRV("MSG_GET_PROPERTY: %d %d\n", msg.u.vtuner.body.prop.cmd,ret);
+							break;
+						case MSG_PIDLIST:
+							ret=hw_pidlist(&hw, msg.u.vtuner.body.pidlist );
+							break;
+						default:
+							ret = 0;
+							WARN("unknown vtuner message %d\n", msg.u.vtuner.type);
+							// don't stop here, instead send message
+							// back to avoid client hang
+					}
+
+					if (msg.u.vtuner.type != MSG_PIDLIST ) {
+						if( ret!= 0 )
+							WARN("vtuner call failed, type:%d reason:%d\n", msg.u.vtuner.type, ret);
+						msg.u.vtuner.type = ret;
+						hton_vtuner_net_message(&msg, hw.type);
+						write(ctrl_fd, &msg, sizeof(msg));
+					}
+				} else {
+					switch (msg.msg_type) {
+						case MSG_NULL:
+							ret = 0;
+							break;
+						default:
+							ret = 0;
+							WARN("received out-of-state control message: %d\n", msg.msg_type);
+							// don't stop here, instead send message
+							// back to avoid client hang
+					}
+					msg.u.vtuner.type = ret;
+					hton_vtuner_net_message(&msg, hw.type);
+					write(ctrl_fd, &msg, sizeof(msg));
+				}
+			} else {
+				WARN("message size is invalid: %d\n", rlen);
+			}
+		}
+	}
+	ex= 1;
+
+	cleanup_worker_thread:
+		dwd.status = DST_EXITING;
+		// FIXME: need a better way to know if thread has finished
+		DEBUGSRV("wait for TS data copy thread to terminate\n");
+		pthread_join(dwt, NULL);
+		DEBUGSRV("TS data copy thread terminated - %m\n");
+
+	cleanup_ctrl:
+		close(ctrl_fd);
+
+	cleanup_listen_data:
+		close(dwd.listen_fd);
+
+	cleanup_listen:
+		close(listen_fd);
+
+	cleanup_hw:
+		hw_free(&hw);
+
+	error:
+		INFO("control thread terminated.\n");
+
+	return ex;
 }
+

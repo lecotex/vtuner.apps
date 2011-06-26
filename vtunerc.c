@@ -157,7 +157,7 @@ int *discover_worker(void *d) {
   data->msg.u.discover.port = 0;
   hton_vtuner_net_message(&data->msg, 0); // we don't care tuner type for conversion of discover
 
-  int timeo = 100;
+  int timeo = 300;
   do {
     INFO("Sending %sdiscover message for device types %x\n", data->direct_ip ? "direct " : "", data->types);
     sendto(discover_fd, &data->msg, sizeof(data->msg), 0, (struct sockaddr *) &msg_addr, sizeof(msg_addr));
@@ -463,6 +463,7 @@ int main(int argc, char **argv) {
 
             // send null message to fully open connection;
             msg.msg_type = MSG_NULL;
+            hton_vtuner_net_message( &msg, types[mode] );
             write(vfd, &msg, sizeof(msg));
             read(vfd, &msg, sizeof(msg));
 

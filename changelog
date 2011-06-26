@@ -1,3 +1,6 @@
+r89
+refactor vtunerd, to prepare for plugin
+
 r88
 added x86_64 arch and enabled vtunerc generation there also. Note: still static build system, sorry
 Thanks for Gelald fix for 64bit arch on vdr-portal.de.

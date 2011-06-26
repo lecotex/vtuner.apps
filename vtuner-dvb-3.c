@@ -88,7 +88,7 @@ int hw_init(vtuner_hw_t* hw, int adapter, int frontend, int demux, int dvr) {
 */
   }
 
-  return 0;
+  return 1;
 
 cleanup_demux:
   for(i=0;i<MAX_DEMUX; ++i) 
@@ -102,8 +102,17 @@ cleanup_fe:
   close(hw->frontend_fd);
 
 error:
-  return -1;
+  return 0;
 } 
+
+void hw_free(vtuner_hw_t *hw) {
+	if(hw->frontend_fd>0) close(hw->frontend_fd);
+	if(hw->streaming_fd>0) close(hw->streaming_fd);
+	int i;
+	for(i=0;i<MAX_DEMUX; ++i)
+		if(hw->demux_fd[i] > 0)
+			close(hw->demux_fd[i]);
+}
 
 void print_frontend_parameters(vtuner_hw_t* hw, struct dvb_frontend_parameters* fe_params, char *msg, size_t msgsize) {
   switch(hw->type) {
@@ -142,6 +151,15 @@ int hw_set_frontend(vtuner_hw_t* hw, struct dvb_frontend_parameters* fe_params) 
       .num = 0,
       .props = NULL
     };
+
+    struct dtv_property CLEAR[] = {
+    	{ .cmd = DTV_CLEAR },
+    };
+
+    cmdseq.num = 1;
+    cmdseq.props = CLEAR;
+    if( ioctl(hw->frontend_fd, FE_SET_PROPERTY, &cmdseq) != 0 )
+    	WARN("FE_SET_FRONTEND DTV_CLEAR failed - %m\n");
 
     struct dtv_property S[] = {
       { .cmd = DTV_DELIVERY_SYSTEM,   .u.data = SYS_DVBS },

@@ -99,7 +99,16 @@ cleanup_fe:
 
 error:
   return -1;
-} 
+}
+
+void hw_free(vtuner_hw_t *hw) {
+	if(hw->frontend_fd>0) close(hw->frontend_fd);
+	if(hw->streaming_fd>0) close(hw->streaming_fd);
+	int i;
+	for(i=0;i<MAX_DEMUX; ++i)
+		if(hw->demux_fd[i] > 0)
+			close(hw->demux_fd[i]);
+}
 
 int hw_get_frontend(vtuner_hw_t* hw, FrontendParameters* fe_params) {
   int ret;

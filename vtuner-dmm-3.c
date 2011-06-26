@@ -116,6 +116,11 @@ error:
   return -1;
 } 
 
+void hw_free(vtuner_hw_t *hw) {
+	if(hw->demux_fd) close(hw->demux_fd);
+	if(hw->frontend_fd) close(hw->frontend_fd);
+}
+
 void print_frontend_parameters(vtuner_hw_t* hw, struct dvb_frontend_parameters* fe_params, char *msg, size_t msgsize) {
   switch(hw->type) {
     case VT_S: snprintf(msg, msgsize, "freq:%d inversion:%d SR:%d FEC:%d\n", \
