@@ -17,28 +17,11 @@
   #endif
 #endif
 
-#define MAX_SESSIONS 8
-
-typedef enum vtuner_session_status {
-  SST_UNKNOWN,
-  SST_IDLE,
-  SST_BUSY
-} vtuner_session_status_t;
-
-typedef struct vtuner_session {
-  vtuner_hw_t hw;
-  __u16 port;
-  __u16 data_port;
-  char tuner_group[80];
-  struct sockaddr_in ctrl_so;
-  vtuner_session_status_t status;
-} vtuner_session_t;
-
 #define DEBUGSRV(msg, ...)  write_message(0x0040, "[%d %s:%u] debug: " msg, getpid(), __FILE__, __LINE__, ## __VA_ARGS__)
 #define DEBUGSRVI(msg, ...) init_message((0x0040, "[%d %s:%u] debug: " msg, getpid(), __FILE__, __LINE__, ## __VA_ARGS__)
 #define DEBUGSRVC(msg, ...) append_message(0x0040, msg, ## __VA_ARGS__)
 
-void *discover_worker(void*);
-void start_sessions(int,unsigned short,vtuner_session_t*);
+int fetch_request(struct sockaddr_in*, int*, int*);
+int run_worker(int, int, int, int, struct sockaddr_in*);
 
 #endif
