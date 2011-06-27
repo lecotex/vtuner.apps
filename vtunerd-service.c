@@ -186,11 +186,11 @@ void *tsdata_worker(void *d) {
       } else {
         int rlen = read(data->in, buffer + bufptr, rmax);
         if(rlen>0) bufptr += rlen;
-/*
+
         DEBUGSRV("receive buffer stats size:%d(%d,%d), read:%d(%d,%d)\n", \
                   rmax, rmax/188, rmax%188,
                   rlen, rlen/188, rlen%188); 
-*/
+
       }
     } 
 
@@ -287,11 +287,16 @@ int run_worker(int adapter, int fe, int demux, int dvr, struct sockaddr_in *clie
 		struct dvb_frontend_parameters fe_params;
 	#endif
 
-	if( ! hw_init(&hw, adapter, fe, demux, dvr)) goto cleanup_hw;
+	if( ! hw_init(&hw, adapter, fe, demux, dvr)) {
+		ERROR("hardware init failed\n");
+		goto cleanup_hw;
+	}
 
 	listen_fd = prepare_anon_stream_socket( &ctrl_so, &ctrllen);
-	if( listen_fd < 0)
+	if( listen_fd < 0) {
+		ERROR("control socket init failed\n");
 		goto cleanup_hw;
+	}
 
 	msg.u.discover.port = ntohs(ctrl_so.sin_port);
 	INFO("control socket bound to %d\n", msg.u.discover.port);
@@ -302,7 +307,6 @@ int run_worker(int adapter, int fe, int demux, int dvr, struct sockaddr_in *clie
 	if( dwd.listen_fd < 0)
 		goto cleanup_listen;
 	dwd.status = DST_RUNNING;
-
 	pthread_t dwt;
 	pthread_create( &dwt, NULL, tsdata_worker, &dwd );
 

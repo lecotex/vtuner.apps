@@ -84,7 +84,7 @@ int hw_init(vtuner_hw_t* hw, int adapter, int frontend, int demux, int dvr) {
     goto cleanup_dvr;
   }
 
-  return 0;
+  return 1;
 
 cleanup_dvr:
   close(hw->streaming_fd);
@@ -98,7 +98,7 @@ cleanup_fe:
   close(hw->frontend_fd);
 
 error:
-  return -1;
+  return 0;
 }
 
 void hw_free(vtuner_hw_t *hw) {
