@@ -104,7 +104,7 @@ int hw_init(vtuner_hw_t* hw, int adapter, int frontend, int demux, int dvr) {
     ERROR("DMX_START failed for %s - %m\n", devstr);
   } 
 
-  return 0;
+  return 1;
 
 cleanup_demux:
   close(hw->demux_fd);
@@ -113,7 +113,7 @@ cleanup_fe:
   close(hw->frontend_fd);
 
 error:
-  return -1;
+  return 0;
 } 
 
 void hw_free(vtuner_hw_t *hw) {
