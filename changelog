@@ -1,3 +1,7 @@
+r91
+fixed x86_64 issue, reported by Gerald.
+Thanks.
+
 r90
 fix for broken vtunerd because of r89
 
