@@ -22,6 +22,9 @@ int use_syslog = 1;
 #define DEBUGMAIN(msg, ...)  write_message(0x0010, "[%d %s:%u] debug: " msg, getpid(), __FILE__, __LINE__, ## __VA_ARGS__)
 #define DEBUGMAINC(msg, ...) write_message(0x0010, msg, ## __VA_ARGS__)
 
+#define TS_PKT_LEN 188
+#define TS_HDR_SYNC 0x47
+
 typedef enum tsdata_worker_status {
   DST_UNKNOWN,
   DST_RUNNING,
@@ -42,11 +45,19 @@ void *tsdata_worker(void *d) {
 
   // 2010-01-30
   // net.ipv4.tcp_wmem max is typically 131072, choosen a value
-  // below that is a multiple of TS package size
+  // below that is a multiple of TS packet size
   // need to have a buffer greater than this to detect if we're
   // receiving to slow
-  int rmax=696*188;
-  char buf[(696+100)*188];
+  int rmax=696*TS_PKT_LEN;
+  unsigned char buf[(696+100)*TS_PKT_LEN];
+  unsigned char *readptr = buf;
+  unsigned char *writeptr = buf;
+  int bytesread = 0;
+  int bytes2read = sizeof(buf);
+  int bytes2write = 0;
+  int offset = 0;
+  int offsetfound = 0;
+  int tail = 0;
   size_t window_size = sizeof(buf);
   setsockopt(data->in, SOL_SOCKET, SO_RCVBUF, (char *) &window_size, sizeof(window_size));
 
@@ -57,32 +68,69 @@ void *tsdata_worker(void *d) {
     // don't poll forever to catch data->status != DST_RUNNING
     if( poll(pfd, 1, 500) != 0) {
       // we're polling one fd here so we know that reading can't block
-      int r = read(data->in, buf, sizeof(buf) );
+      int r = read(data->in, readptr, bytes2read);
+      bytesread += r;
+      bytes2read -= r;
+      readptr += r;
+
+      if (bytesread < TS_PKT_LEN * 3) {
+        INFO("less than 3 TS packets read, read more.\n");
+        continue; 
+      }
+
+      for (offset = 0, offsetfound = 0; offset < TS_PKT_LEN; offset++) {
+        unsigned char *ptr;
+
+        offsetfound = 1; 
+        for (ptr = buf; ptr < readptr; ptr += TS_PKT_LEN) {
+          if (*(ptr + offset) != TS_HDR_SYNC) {
+             offsetfound = 0;
+             break;
+          }
+        }
+        if (offsetfound)
+          break;
+      }
+
+      if (!offsetfound) {
+        ERROR("start of TS packet not found, throwing buffer away.\n");
+        readptr = buf;
+        bytesread = 0;
+        bytes2read = sizeof(buf);
+        tail = 0;
+        continue;
+      } 
+
+      if (offset)
+        DEBUGMAIN("offset to TS packet %d bytes.\n", offset);
+      writeptr = buf + offset;
+      tail = (bytesread - offset) % TS_PKT_LEN;
+      bytes2write = bytesread - offset - tail;
 
       // 2010-04-03 try to calculate optimal read delay.
       // read to often wastes CPU resources
       // reading to slow delays playback and makes
       // scaning impossible
       // the ideo is to adjust the delay to always receive 
-      // packages in the range of 70% - 90% of rmax
+      // packets in the range of 70% - 90% of rmax
     
-      if( r > rmax && delay > 15) {
+      if( bytesread > rmax && delay > 15) {
         delay -= 2;
-        DEBUGMAIN("decreased delay: r:%d rmax:%d, delay:%d\n", r, rmax, delay);
-      } else if( r < 0.70*rmax && delay < 95) {
+        DEBUGMAIN("decreased delay: bytesread:%d rmax:%d, delay:%d\n", bytesread, rmax, delay);
+      } else if( bytesread < 0.70*rmax && delay < 95) {
         delay += 2;
-        DEBUGMAIN("increased delay: r:%d rmax:%d, delay:%d\n", r, rmax, delay);
+        DEBUGMAIN("increased delay: bytesread:%d rmax:%d, delay:%d\n", bytesread, rmax, delay);
       } 
 
-      if (r <= 0) {
+      if (bytesread <= 0) {
         ERROR("tcp read - %m\n");
         data->status = DST_FAILED;
       } else {
-        if (write(data->out, buf, r) != r) {
+        if (write(data->out, writeptr, bytes2write) != bytes2write) {
           ERROR("write failed - %m\n");
           data->status = DST_FAILED;
         } else {
-          // DEBUGMAIN("receive buffer stats. size:%d, rmax:%d, delay:%d\n", r, rmax, delay); 
+          // DEBUGMAIN("receive buffer stats. size:%d, rmax:%d, delay:%d\n", bytes2write, rmax, delay); 
           // suggested from H2Deetoo to prevent pixelation with
           // crypted HD DVB-C channels
           // 2010-01-30
@@ -90,6 +138,10 @@ void *tsdata_worker(void *d) {
           // data to be received in between 
           usleep(delay*1000);
         }
+        memmove(buf, readptr - tail, tail);
+        readptr = buf + tail;
+        bytesread = tail;
+        bytes2read = sizeof(buf) - tail ;
       }
     }
   }
@@ -365,6 +417,7 @@ int main(int argc, char **argv) {
   }
   INFO("Simulating a %s tuner\n", ctypes[mode]); 
 
+#ifdef HAVE_DREAMBOX_HARDWARE
   int f;
   f = open("/proc/stb/info/model",O_RDONLY);
   if(f>0) {
@@ -376,6 +429,7 @@ int main(int argc, char **argv) {
     model[len] = 0;
     INFO("Box is a %s", model);
   }
+#endif
 
   discover_worker_data_t dsd;
   dsd.status = DWS_IDLE;
