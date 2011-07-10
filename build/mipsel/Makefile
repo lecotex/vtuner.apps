@@ -7,7 +7,7 @@ CFLAGS=-fpic -DHAVE_DVB_API_VERSION=3 -DHAVE_DREAMBOX_HARDWARE $(DBGFLAGS)
 LDFLAGS=-lpthread -lrt
 DRIVER=vtuner-dmm-3
 
-all: ../../dist/$(ARCH)/vtunerd.$(ARCH) ../../dist/$(ARCH)/vtunerc.$(ARCH) ../../dist/$(ARCH)/vtunerdservice.so
+all: ../../dist/$(ARCH)/vtunerd.$(ARCH) ../../dist/$(ARCH)/vtunerc.$(ARCH)
 
 -include ../../Make.rules
 
