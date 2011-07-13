@@ -442,8 +442,12 @@ int main(int argc, char **argv) {
     exit(1);
   }
 
-
 #ifdef HAVE_DREAMBOX_HARDWARE
+  if (ioctl(vtuner_control, VTUNER_SET_HAS_OUTPUTS, "no")) {
+    ERROR("VTUNER_SET_HAS_OUTPUTS failed - %m\n");
+    exit(1);
+  }
+
   int f;
   f = open("/proc/stb/info/model",O_RDONLY);
   if(f>0) {
