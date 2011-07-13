@@ -16,14 +16,21 @@
 
 #include "vtuner-network.h"
 
+#define TS_PKT_LEN 188
+#define TS_HDR_SYNC 0x47
+
 int dbg_level =  0x00ff;
 int use_syslog = 1;
+int opt_delay = 50;
+// 2010-01-30
+// net.ipv4.tcp_wmem max is typically 131072, choosen a value
+// below that is a multiple of TS package size
+// need to have a buffer greater than this to detect if we're
+// receiving to slow
+int opt_pktrmax=696;
 
 #define DEBUGMAIN(msg, ...)  write_message(0x0010, "[%d %s:%u] debug: " msg, getpid(), __FILE__, __LINE__, ## __VA_ARGS__)
 #define DEBUGMAINC(msg, ...) write_message(0x0010, msg, ## __VA_ARGS__)
-
-#define TS_PKT_LEN 188
-#define TS_HDR_SYNC 0x47
 
 typedef enum tsdata_worker_status {
   DST_UNKNOWN,
@@ -48,8 +55,8 @@ void *tsdata_worker(void *d) {
   // below that is a multiple of TS packet size
   // need to have a buffer greater than this to detect if we're
   // receiving to slow
-  int rmax=696*TS_PKT_LEN;
-  unsigned char buf[(696+100)*TS_PKT_LEN];
+  int rmax=opt_pktrmax*TS_PKT_LEN;
+  unsigned char buf[(opt_pktrmax+100)*TS_PKT_LEN];
   unsigned char *readptr = buf;
   unsigned char *writeptr = buf;
   int bytesread = 0;
@@ -61,7 +68,7 @@ void *tsdata_worker(void *d) {
   size_t window_size = sizeof(buf);
   setsockopt(data->in, SOL_SOCKET, SO_RCVBUF, (char *) &window_size, sizeof(window_size));
 
-  int delay=50; //ms to sleep after each write
+  int delay=opt_delay; //ms to sleep after each write
 
   while(data->status == DST_RUNNING) {
     struct pollfd pfd[] = { { data->in, POLLIN, 0 } };
@@ -114,13 +121,15 @@ void *tsdata_worker(void *d) {
       // the ideo is to adjust the delay to always receive 
       // packets in the range of 70% - 90% of rmax
     
-      if( bytesread > rmax && delay > 15) {
-        delay -= 2;
-        DEBUGMAIN("decreased delay: bytesread:%d rmax:%d, delay:%d\n", bytesread, rmax, delay);
-      } else if( bytesread < 0.70*rmax && delay < 95) {
-        delay += 2;
-        DEBUGMAIN("increased delay: bytesread:%d rmax:%d, delay:%d\n", bytesread, rmax, delay);
-      } 
+      if (opt_delay) {
+        if( bytesread > rmax && delay > 15) {
+          delay -= 2;
+          DEBUGMAIN("decreased delay: bytesread:%d rmax:%d, delay:%d\n", bytesread, rmax, delay);
+        } else if( bytesread < 0.70*rmax && delay < 95) {
+          delay += 2;
+          DEBUGMAIN("increased delay: bytesread:%d rmax:%d, delay:%d\n", bytesread, rmax, delay);
+        } 
+      }
 
       if (bytesread <= 0) {
         ERROR("tcp read - %m\n");
@@ -136,7 +145,8 @@ void *tsdata_worker(void *d) {
           // 2010-01-30
           // wait 100 ms instead of 10 to allow a large chunk of 
           // data to be received in between 
-          usleep(delay*1000);
+	  if (opt_delay && delay > 0)
+            usleep(delay*1000);
         }
         memmove(buf, readptr - tail, tail);
         readptr = buf + tail;
@@ -307,23 +317,118 @@ int main(int argc, char **argv) {
   char ctypes[MAX_NUM_VTUNER_MODES][32] = {"none", "none", "none"};
   struct dvb_frontend_info* vtuner_info[MAX_NUM_VTUNER_MODES];
   int types[MAX_NUM_VTUNER_MODES];
-  char *pext, *direct_ip = NULL;
+  char *pext, direct_ip[128];
   unsigned int groups = 0xFFFFFFFF; // means 'ANY group'
   unsigned int discover_port = VTUNER_DISCOVER_PORT;
   int argadd = 0;
   int vtuner_control;
   struct stat st;
   char *ctrl_devname = VTUNER_CTRL_DEVNAME;
+  int c;
+  char *act;
 
-  // first option tuple can be control device name (ie: -d /dev/vtunerc0)
-  if(argc > 2 && !strcmp(argv[1],"-d")) {
-    if(!stat(argv[2], &st) && S_ISCHR(st.st_mode)) {
-      ctrl_devname = argv[2];
-      argadd = 2;
-    } else {
-      ERROR("can't open control device: %s\n", argv[2]);
+  // new arg processing
+  // -d ctrl-dev_name -n ip:port -f s2:group_mask -f t:group_mask,c:group_mask -x delay_or_0 -r rmax -v verbosity
+
+  mode = 0;
+  modes = 0;
+  while((c = getopt(argc, argv, "d:f:n:r:x:hv:")) != -1) {
+    switch(c) {
+    case 'd': // device name
+      if(!stat(optarg, &st) && S_ISCHR(st.st_mode))
+        ctrl_devname = optarg;
+      else {
+        ERROR("can't open control device: %s\n", optarg);
+        exit(1);
+      }
+      break;
+
+    case 'f': // frontends type (eg: s2,c,t)
+      act = optarg;
+      do {
+        char *nxt = strchr(act, ',');
+	if(nxt)
+	  *nxt = '\0';
+        if(strncmp(act,"s2",strlen("s2"))==0) {
+          types[modes] = VT_S | VT_S2;
+          vtuner_info[modes] = &fe_info_dvbs2;
+          strncpy(ctypes[modes],"DVB-S2",sizeof(ctypes[0]));
+        } else if(strncmp(act,"S2",strlen("S2"))==0) {
+          types[modes] = VT_S2;
+          vtuner_info[modes] = &fe_info_dvbs2;
+          strncpy(ctypes[modes],"DVB-S2",sizeof(ctypes[0]));
+        } else if(strncmp(act,"s",strlen("s"))==0) {
+          types[modes] = VT_S | VT_S2;
+          vtuner_info[modes] = &fe_info_dvbs;
+          strncpy(ctypes[modes],"DVB-S",sizeof(ctypes[0]));
+        } else if(strncmp(act,"S",strlen("S"))==0) {
+          types[modes] = VT_S;
+          vtuner_info[modes] = &fe_info_dvbs;
+          strncpy(ctypes[modes],"DVB-S",sizeof(ctypes[0]));
+        } else if(strncmp(act,"c",strlen("c"))==0) {
+          types[modes] = VT_C;
+          vtuner_info[modes] = &fe_info_dvbc;
+          strncpy(ctypes[modes],"DVB-C",sizeof(ctypes[0]));
+        } else if(strncmp(act,"t",strlen("t"))==0) {
+          types[modes] = VT_T;
+          vtuner_info[modes] = &fe_info_dvbt;
+          strncpy(ctypes[modes],"DVB-T",sizeof(ctypes[0]));
+        } else {
+          ERROR("unknown tuner mode specified: %s allowed values are: -s -S -s2 -S2 -c -t\n", optarg);
+          exit(1);
+        }
+	// TODO: add tuner_mask parsing
+	act = nxt;
+	if(nxt)
+	  act++;
+        DEBUGMAIN("added frontend mode %s as mode %d, searching for tuner types %x\n", ctypes[modes], modes, types[modes]);
+        modes++;
+#ifndef HAVE_DREAMBOX_HARDWARE
+	if(modes) {
+          DEBUGMAIN("frontend switch: only one mode is allowed. First is used\n");
+	  break; // only one mode is allowed for opensourced vtunerc.ko
+	}
+#endif
+      } while (act);
+      break;
+
+    case 'n': // network: direct connection
+      direct_ip[0] = '\0';
+      if((c = sscanf(optarg, "%[^:]:%d", direct_ip, &discover_port)) < 1)
+      //if(strchr(optarg, ':'))
+      {
+         ERROR("Network parameter requires at least IP address (rv=%d)\n", c);
+         exit(1);
+      }
+      DEBUGMAIN("direct connection: ip='%s' port=%d\n", direct_ip, discover_port);
+      break;
+
+    case 'x': // calc delay
+      opt_delay = atoi(optarg);
+      break;
+
+    case 'r': // rbuf_size
+      opt_pktrmax = atoi(optarg);
+      break;
+
+    case 'v': // verbosity
+      dbg_level = atoi(optarg);
+      break;
+
+    case 'h': // help
+#ifdef HAVE_DREAMBOX_HARDWARE
+      ERROR("Command options: [-d /dev/ctrl_name] [-n direct_ip[:port]] -f <dvb_type>[:tuner_mask][,<dvb_type_2>[:tuner_mask_2]][,dvb_type_3[:tuner_mask_3]] [-r rbuf_size] [-x max_delay_or_0]\n");
+#else
+      ERROR("Command options: [-d /dev/ctrl_name] [-n direct_ip[:port]] -f <dvb_type>[:tuner_mask] [-r rbuf_size] [-x max_delay_or_0]\n");
+#endif
       exit(1);
+      break;
     }
+  }
+
+  if(modes == 0) {
+    ERROR("Missing required -f parameter\n");
+    exit(1);
   }
 
   vtuner_control = open(ctrl_devname, O_RDWR);
@@ -337,85 +442,6 @@ int main(int argc, char **argv) {
     exit(1);
   }
 
-#ifdef HAVE_DREAMBOX_HARDWARE
-  if (ioctl(vtuner_control, VTUNER_SET_HAS_OUTPUTS, "no")) {
-    ERROR("VTUNER_SET_HAS_OUTPUTS failed - %m\n");
-    exit(1);
-  }
-#endif
-
-  mode = 0;
-  if(strstr(argv[0],"vtunercs") != NULL) {
-    types[0] = VT_S|VT_S2; modes = 1;
-    strncpy(ctypes[0],"DVB-S2",sizeof(ctypes[0]));
-    vtuner_info[0] = &fe_info_dvbs2;
-  } else if(strstr(argv[0],"vtunerct") != NULL ) {
-    types[0] = VT_T; modes = 1;
-    strncpy(ctypes[0],"DVB-T",sizeof(ctypes[0]));
-    vtuner_info[0] = &fe_info_dvbt; 
-  } else if(strstr(argv[0],"vtunercc") != NULL ) {
-    types[0] = VT_C; modes = 1;
-    strncpy(ctypes[0],"DVB-C",sizeof(ctypes[0]));
-    vtuner_info[0] = &fe_info_dvbc;
-  } else {
-    int i; modes = 0;
-    if( argc-1 > MAX_NUM_VTUNER_MODES) {
-      ERROR("more than %i modes given\n", MAX_NUM_VTUNER_MODES);
-      exit(1);
-    }
-    for(i=1+argadd; i<argc; ++i) {
-      if(strncmp(argv[i],"-s2",strlen("-s2"))==0) {
-        types[modes] = VT_S | VT_S2;
-        vtuner_info[modes] = &fe_info_dvbs2;
-        strncpy(ctypes[modes],"DVB-S2",sizeof(ctypes[0]));
-      } else if(strncmp(argv[i],"-S2",strlen("-S2"))==0) {
-        types[modes] = VT_S2;
-        vtuner_info[modes] = &fe_info_dvbs2;
-        strncpy(ctypes[modes],"DVB-S2",sizeof(ctypes[0]));
-      } else if(strncmp(argv[i],"-s",strlen("-s"))==0) {
-	types[modes] = VT_S | VT_S2;
-        vtuner_info[modes] = &fe_info_dvbs;
-        strncpy(ctypes[modes],"DVB-S",sizeof(ctypes[0]));
-      } else if(strncmp(argv[i],"-S",strlen("-S"))==0) {
-        types[modes] = VT_S;
-        vtuner_info[modes] = &fe_info_dvbs;
-        strncpy(ctypes[modes],"DVB-S",sizeof(ctypes[0]));
-      } else if(strncmp(argv[i],"-c",strlen("-c"))==0) {
-        types[modes] = VT_C;
-        vtuner_info[modes] = &fe_info_dvbc;
-        strncpy(ctypes[modes],"DVB-C",sizeof(ctypes[0]));
-      } else if(strncmp(argv[i],"-t",strlen("-t"))==0) {
-        types[modes] = VT_T;
-        vtuner_info[modes] = &fe_info_dvbt;
-        strncpy(ctypes[modes],"DVB-T",sizeof(ctypes[0]));
-      } else {
-        ERROR("unknown tuner mode specified: %s allow values are: -s -S -s2 -S2 -c -t\n", argv[i]);
-        exit(1);
-      }
-      DEBUGMAIN("added frontend mode %s as mode %d, searching for tuner types %x\n", ctypes[modes], modes, types[modes]);
-
-      // -S2:192.168.1.11:3333:0020 or -S2:192.168.1.11 or -S2:192.168.1.11:3333 or -S2:::0020
-      if((pext = strchr(argv[i],':'))) {
-        char *pport;
-	if((pport = strchr(pext+1,':'))) {
-          int nvals;
-          *pport = '\0';
-	  if(strlen(pext+1))
-            direct_ip = strdup(pext+1);
-	  // num
-	  if(strlen(pport+1) & pport[1] != ':')
-	    sscanf(pport+1,"%d:%x",&discover_port,&groups);
-          else
-	    sscanf(pport+2,"%x",&groups);
-	}
-        DEBUGMAIN("extra connection params: ip='%s' port=%d groups=%x\n", direct_ip ? : "<null>", discover_port, groups);
-      }
-
-      ++modes;
-    }
-
-  }
-  INFO("Simulating a %s tuner\n", ctypes[mode]); 
 
 #ifdef HAVE_DREAMBOX_HARDWARE
   int f;
@@ -433,7 +459,7 @@ int main(int argc, char **argv) {
 
   discover_worker_data_t dsd;
   dsd.status = DWS_IDLE;
-  dsd.direct_ip = direct_ip;
+  dsd.direct_ip = strlen(direct_ip) ? strdup(direct_ip) : NULL;
   dsd.groups = groups;
   dsd.port = discover_port;
   vtuner_status_t vts = VTS_DISCONNECTED;
