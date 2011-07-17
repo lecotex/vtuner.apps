@@ -205,7 +205,7 @@ int *discover_worker(void *d) {
   if(data->direct_ip) {
     struct in_addr dirip;
     if(!inet_aton(data->direct_ip, &msg_addr.sin_addr)) {
-      ERROR("can't parse direct ip\n");
+      ERROR("can't parse direct ip: %s\n", data->direct_ip);
       close(discover_fd);
       data->status = DWS_FAILED;
       goto discover_worker_end;
@@ -332,6 +332,8 @@ int main(int argc, char **argv) {
 
   mode = 0;
   modes = 0;
+  direct_ip[0] = '\0';
+
   while((c = getopt(argc, argv, "d:f:n:r:x:hv:")) != -1) {
     switch(c) {
     case 'd': // device name
@@ -393,7 +395,6 @@ int main(int argc, char **argv) {
       break;
 
     case 'n': // network: direct connection
-      direct_ip[0] = '\0';
       if((c = sscanf(optarg, "%[^:]:%d", direct_ip, &discover_port)) < 1)
       //if(strchr(optarg, ':'))
       {
