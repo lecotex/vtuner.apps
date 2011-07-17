@@ -11,19 +11,27 @@ config.plugins.vTuner = ConfigSubsection()
 config.plugins.vTuner.client = ConfigSubsection()
 config.plugins.vTuner.client.enabled = ConfigYesNo(default=True)
 config.plugins.vTuner.client.mode = ConfigSubList()
+config.plugins.vTuner.client.discover = ConfigYesNo(default=True)
+config.plugins.vTuner.client.ip = ConfigIP( default=[0,0,0,0] )
+config.plugins.vTuner.client.port = ConfigInteger(default = 39305, limits=(0, 49152) )
    
 for i in [0,1,2]:
     mode = ConfigSubsection()
     if i == 0:
         # first type must not be none
-        mode.type = ConfigSelection(default="-s2", choices = [("-s2", _("DVB-S2 connected to DVB-S/S2")),("-c", _("DVB-C")),("-t", _("DVB-T")), ("-S2", _("DVB-S/S2 connected to DVB-S2")), ("-s", _("DVB-S connected to DVB-S/S2")), ("-S", _("DVB-S connected to DVB-S")) ])
+        mode.type = ConfigSelection(default="s2", choices = [("s2", _("DVB-S2 connected to DVB-S/S2")),("c", _("DVB-C")),("t", _("DVB-T")), ("S2", _("DVB-S/S2 connected to DVB-S2")), ("s", _("DVB-S connected to DVB-S/S2")), ("S", _("DVB-S connected to DVB-S")) ])
     else:
-        mode.type = ConfigSelection(default="", choices = [("", _("unused")), ("-s2", _("DVB-S2 connected to DVB-S/S2")),("-c", _("DVB-C")),("-t", _("DVB-T")), ("-S2", _("DVB-S2 connected to DVB-S2")), ("-s", _("DVB-S connected to DVB-S/S2")), ("-S", _("DVB-S connected to DVB-S")) ])
-    mode.discover = ConfigYesNo(default=True)
-    mode.ip = ConfigText( default="0.0.0.0" )
-    mode.port = ConfigInteger(default = 39305, limits=(0, 49152) )
+        mode.type = ConfigSelection(default="", choices = [("", _("unused")), ("s2", _("DVB-S2 connected to DVB-S/S2")),("c", _("DVB-C")),("t", _("DVB-T")), ("S2", _("DVB-S2 connected to DVB-S2")), ("s", _("DVB-S connected to DVB-S/S2")), ("S", _("DVB-S connected to DVB-S")) ])
     mode.group = ConfigInteger(default = 1, limits=(1, 255) )
-    config.plugins.vTuner.client.mode.append(mode) 
+    config.plugins.vTuner.client.mode.append(mode)
+    
+config.plugins.vTuner.server = ConfigSubsection()
+config.plugins.vTuner.server.enabled = ConfigYesNo(default=False) 
+
+config.plugins.vTuner.expert = ConfigSubsection()
+config.plugins.vTuner.expert.enabled = ConfigYesNo(default=False)
+config.plugins.vTuner.expert.buffersize = ConfigInteger(default = 696, limits=(200, 2000) )
+config.plugins.vTuner.expert.readdelay = ConfigInteger(default = 50, limits=(0, 300) )
     
 def configCB(result, session):
     if result is True:
@@ -36,13 +44,23 @@ def configCB(result, session):
             f.write('DAEMON="/bin/true"\n')
         
         options=""
+        if not config.plugins.vTuner.client.discover.value:
+            options += "-n %d.%d.%d.%d" % tuple(config.plugins.vTuner.client.ip.value)
+            options += ":{0} ".format(config.plugins.vTuner.client.port.value)
+            
+        if config.plugins.vTuner.expert.enabled.value:
+            options += "-r %d " % config.plugins.vTuner.expert.buffersize.value
+            options += "-x %d " % config.plugins.vTuner.expert.readdelay.value
+        
+        first_mode = True
         for mode in config.plugins.vTuner.client.mode:
             if mode.type.value:
-                if not mode.discover.value or mode.group.value != 1: 
-                    options += '{0}:{1}:{2}:{3} '.format(mode.type.value,mode.ip.value.strip(),mode.port.value,mode.group.value)
+                if first_mode:
+                    options += "-f {0}:{1}".format(mode.type.value, mode.group.value)
                 else:
-                    options += '{0} '.format(mode.type.value)
-        
+                    options += ",{0}:{1}".format(mode.type.value, mode.group.value)
+                first_mode = False            
+                
         f.write('OPTIONS="{0}"\n'.format(options))
 
 class vTunerConfigScreen(ConfigListScreen, Screen):        
@@ -86,16 +104,22 @@ class vTunerConfigScreen(ConfigListScreen, Screen):
     def createSetupClient(self):
         list = [ ]
         
+        list.append( getConfigListEntry( _("Autodiscover server:"), config.plugins.vTuner.client.discover) )
+        if not config.plugins.vTuner.client.discover.value:
+            list.append( getConfigListEntry( _("Server IP:"), config.plugins.vTuner.client.ip) )
+            list.append( getConfigListEntry( _("Server port:"), config.plugins.vTuner.client.port) )
+            
         for n in [0,1,2]:
             mode = config.plugins.vTuner.client.mode[n]
             list.append( getConfigListEntry( _("{0}. Tuner type:".format(n+1)), mode.type) )
             if mode.type.value != "":
-                list.append( getConfigListEntry( _("Autodiscover server:"), mode.discover) )
-                if not mode.discover.value:
-                    list.append( getConfigListEntry( _("Server IP:"), mode.ip) )
-                    list.append( getConfigListEntry( _("Server port:"), mode.port) )
                 list.append( getConfigListEntry( _("Tuner group (unsupported):"), mode.group) )
         
+        list.append( getConfigListEntry( _("Expert settings:"), config.plugins.vTuner.expert.enabled) )
+        if config.plugins.vTuner.expert.enabled.value:
+            list.append( getConfigListEntry( _("Client buffer size:"), config.plugins.vTuner.expert.buffersize) )
+            list.append( getConfigListEntry( _("Client read delay [ms]:"), config.plugins.vTuner.expert.readdelay) )
+            
         return(list)
         
     def createSetup(self):
