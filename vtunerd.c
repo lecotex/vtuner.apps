@@ -65,8 +65,6 @@ int main(int argc, char **argv) {
 			session[i].frontend = atoi(argv[i*4+3]);
 			session[i].demux = atoi(argv[i*4+4]);
 			session[i].dvr = atoi(argv[i*4+5]);
-			session[i].tuner_type = 0xff;
-
 			DEBUGMAIN("register hardware adapter %d, frontend %d, demux %d, dvr %d\n",\
 					session[i].adapter,session[i].frontend,session[i].demux,session[i].dvr);
 		}
@@ -76,19 +74,44 @@ int main(int argc, char **argv) {
 		INFO("S2API tuning support.\n");
 	#endif
 
+	for(i=0;i<hw_count;++i) {
+		vtuner_hw_t hw;
+		if(hw_init(&hw, session[i].adapter, session[i].frontend,
+					    session[i].demux, session[i].dvr)) {
+			session[i].tuner_type = hw.type;
+			INFO("adapter:%d, frontend:%d, demux,%d, dvr:%d is type:%d\n",
+				 session[i].adapter, session[i].frontend,
+				 session[i].demux, session[i].dvr, session[i].tuner_type);
+		} else {
+			WARN("Failed to init adapter:%d, frontend:%d, demux,%d, dvr:%d\n",
+			     session[i].adapter, session[i].frontend,
+				 session[i].demux, session[i].dvr);
+			session[i].tuner_type = 0x00;
+		}
+		hw_free(&hw);
+	}
+
 	struct sockaddr_in client_so;
 	int tuner_type, tuner_group;
 
+
 	while(fetch_request(&client_so, &tuner_type, &tuner_group)) {
-		INFO("received discover request\n");
-		for(i=0;i<hw_count;++i)
-			if(session[i].status == SST_IDLE) {
-				  session[i].status = SST_BUSY;
-				  memcpy((void*)&session[i].client_so, (void*)&client_so, sizeof(client_so));
-				  pthread_create(&session[i].th, NULL, session_worker, (void*)&session[i]);
-			}
-			else
-				INFO("No idle device found\n");
+		INFO("received discover request, vtuner_type:%d\n", tuner_type);
+		for(i=0; i<hw_count; ++i) {
+			DEBUGMAIN("session status:%d session type:%d tuner_type:%d match:%d\n",
+					  session[i].status, session[i].tuner_type, tuner_type,
+					  (session[i].tuner_type & tuner_type) != 0);
+			if( (session[i].status == SST_IDLE) &&
+			    ((session[i].tuner_type & tuner_type) != 0) )
+				break;
+		}
+		if( i < hw_count) {
+			session[i].status = SST_BUSY;
+			memcpy((void*)&session[i].client_so, (void*)&client_so, sizeof(client_so));
+			pthread_create(&session[i].th, NULL, session_worker, (void*)&session[i]);
+		} else {
+			INFO("No idle device found\n");
+		}
 	}
 
 }
