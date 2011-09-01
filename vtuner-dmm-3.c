@@ -147,8 +147,89 @@ int hw_set_frontend(vtuner_hw_t* hw, struct dvb_frontend_parameters* fe_params) 
   char msg[1024];
   print_frontend_parameters(hw, fe_params, msg, sizeof(msg));
   INFO("FE_SET_FRONTEND parameters: %s", msg);
-  ret = ioctl(hw->frontend_fd, FE_SET_FRONTEND, fe_params);
-  if( ret != 0 ) WARN("FE_SET_FRONTEND failed %s\n", msg);
+  #if DVB_API_VERSION < 5 
+    ret = ioctl(hw->frontend_fd, FE_SET_FRONTEND, fe_params);
+  #else
+    struct dtv_properties cmdseq = {
+      .num = 0,
+      .props = NULL
+    };
+
+    struct dtv_property CLEAR[] = {
+    	{ .cmd = DTV_CLEAR },
+    };
+
+    cmdseq.num = 1;
+    cmdseq.props = CLEAR;
+    if( ioctl(hw->frontend_fd, FE_SET_PROPERTY, &cmdseq) != 0 )
+    	WARN("FE_SET_FRONTEND DTV_CLEAR failed - %m\n");
+
+    struct dtv_property S[] = {
+      { .cmd = DTV_DELIVERY_SYSTEM,   .u.data = SYS_DVBS },
+      { .cmd = DTV_FREQUENCY,         .u.data = fe_params->frequency },
+      { .cmd = DTV_MODULATION,        .u.data = QPSK },
+      { .cmd = DTV_SYMBOL_RATE,       .u.data = fe_params->u.qpsk.symbol_rate },
+      { .cmd = DTV_INNER_FEC,         .u.data = fe_params->u.qpsk.fec_inner },
+      { .cmd = DTV_INVERSION,         .u.data = INVERSION_AUTO },
+      { .cmd = DTV_ROLLOFF,           .u.data = ROLLOFF_AUTO },
+      { .cmd = DTV_PILOT,             .u.data = PILOT_AUTO },
+      { .cmd = DTV_TUNE },
+    };
+
+    switch(hw->type) { 
+      case VT_S:
+      case VT_S2: {
+        cmdseq.num = 9;
+        cmdseq.props = S;
+        if( ( hw->type == VT_S || hw->type == VT_S2) &&  fe_params->u.qpsk.fec_inner > FEC_AUTO) {
+          cmdseq.props[0].u.data = SYS_DVBS2;
+          switch( fe_params->u.qpsk.fec_inner ) {
+            case 19: cmdseq.props[2].u.data = PSK_8;
+            case 10: cmdseq.props[4].u.data = FEC_1_2 ; break;
+            case 20: cmdseq.props[2].u.data = PSK_8;
+            case 11: cmdseq.props[4].u.data = FEC_2_3 ; break;
+            case 21: cmdseq.props[2].u.data = PSK_8;
+            case 12: cmdseq.props[4].u.data = FEC_3_4 ; break;
+            case 22: cmdseq.props[2].u.data = PSK_8;
+            case 13: cmdseq.props[4].u.data = FEC_5_6 ; break;
+            case 23: cmdseq.props[2].u.data = PSK_8;
+            case 14: cmdseq.props[4].u.data = FEC_7_8 ; break;
+            case 24: cmdseq.props[2].u.data = PSK_8;
+            case 15: cmdseq.props[4].u.data = FEC_8_9 ; break;
+            case 25: cmdseq.props[2].u.data = PSK_8;
+            case 16: cmdseq.props[4].u.data = FEC_3_5 ; break;
+            case 26: cmdseq.props[2].u.data = PSK_8;
+            case 17: cmdseq.props[4].u.data = FEC_4_5 ; break;
+            case 27: cmdseq.props[2].u.data = PSK_8;
+            case 18: cmdseq.props[4].u.data = FEC_9_10; break;
+          }
+          switch( fe_params->inversion & 0x0c ) {
+            case 0: cmdseq.props[6].u.data = ROLLOFF_35; break;
+            case 4: cmdseq.props[6].u.data = ROLLOFF_25; break;
+            case 8: cmdseq.props[6].u.data = ROLLOFF_20; break;
+            default: WARN("ROLLOFF unknnown\n");
+          }
+          switch( fe_params->inversion & 0x30 ) {
+            case 0:    cmdseq.props[7].u.data = PILOT_OFF;  break;
+            case 0x10: cmdseq.props[7].u.data = PILOT_ON;   break;
+            case 0x20: cmdseq.props[7].u.data = PILOT_AUTO; break;
+            default: WARN("PILOT unknown\n");
+          }
+          cmdseq.props[5].u.data &= 0x04;
+        }
+        DEBUGHW("S2API tuning SYS:%d MOD:%d FEC:%d INV:%d ROLLOFF:%d PILOT:%d\n", cmdseq.props[0].u.data, cmdseq.props[2].u.data, cmdseq.props[4].u.data, cmdseq.props[5].u.data, cmdseq.props[6].u.data, cmdseq.props[7].u.data);
+        ret=ioctl(hw->frontend_fd, FE_SET_PROPERTY, &cmdseq);
+        break;
+      }
+      case VT_C:
+      case VT_T:  // even If we would have S2API, the old is sufficent to tune
+        ret = ioctl(hw->frontend_fd, FE_SET_FRONTEND, fe_params); 
+        break;
+      default:
+	WARN("tuning not implemented for HW-type:%d (S:%d, S2:%d C:%d T:%d)\n", hw->type, VT_S, VT_S2, VT_C, VT_T);
+    }
+  #endif
+  if( ret != 0 ) WARN("FE_SET_FRONTEND failed %s - %m\n", msg);
   return ret;
 }
 
