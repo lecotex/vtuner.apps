@@ -4,9 +4,14 @@
 #include <fcntl.h>
 #include <pthread.h>
 #include <syslog.h>
+#include <linux/dvb/version.h>
 
 #include "vtunerd-service.h"
 #include "vtuner-utils.h"
+
+#ifndef BUILDVER
+#define BUILDVER 0
+#endif
 
 int dbg_level  = 0x00ff;
 int use_syslog = 1;
@@ -44,6 +49,13 @@ int main(int argc, char **argv) {
 	vtuner_session_t session[MAX_SESSIONS];
 
 	openlog("vtunerd", LOG_PERROR, LOG_USER);
+
+	write_message(-1, "vtuner server (vtunerd), part of vtuner project\n");
+	write_message(-1, "Copyright (C) 2009-11  Roland Mieslinger\n"
+			"This is free software; see the source for copying conditions.\n"
+			"There is NO warranty; not even for MERCHANTABILITY or FITNESS FOR A\n"
+			"PARTICULAR PURPOSE.\n");
+	write_message(-1, "Revision:%d DVB:%d.%d allow:%d.x\n", BUILDVER, DVB_API_VERSION, DVB_API_VERSION_MINOR, HAVE_DVB_API_VERSION);
 
 	for(i=0; i<MAX_SESSIONS; ++i) session[i].status = SST_IDLE;
 

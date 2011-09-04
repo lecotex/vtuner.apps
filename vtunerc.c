@@ -13,8 +13,13 @@
 #include <signal.h>
 #include <sys/stat.h>
 #include <unistd.h>
+#include <linux/dvb/version.h>
 
 #include "vtuner-network.h"
+
+#ifndef BUILDVER
+#define BUILDVER 0
+#endif
 
 #define TS_PKT_LEN 188
 #define TS_HDR_SYNC 0x47
@@ -340,6 +345,13 @@ int main(int argc, char **argv) {
   mode = 0;
   modes = 0;
   direct_ip[0] = '\0';
+
+  write_message(-1, "vtuner client (vtunerc), part of vtuner project\n");
+  write_message(-1, "Copyright (C) 2009-11  Roland Mieslinger\n"
+			"This is free software; see the source for copying conditions.\n"
+			"There is NO warranty; not even for MERCHANTABILITY or FITNESS FOR A\n"
+			"PARTICULAR PURPOSE.\n");
+  write_message(-1, "Revision:%d DVB:%d.%d allow:%d.x\n", BUILDVER, DVB_API_VERSION, DVB_API_VERSION_MINOR, HAVE_DVB_API_VERSION);
 
   while((c = getopt(argc, argv, "d:f:n:r:x:hv:")) != -1) {
     switch(c) {
