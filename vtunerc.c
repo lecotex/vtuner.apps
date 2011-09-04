@@ -76,12 +76,19 @@ void *tsdata_worker(void *d) {
     if( poll(pfd, 1, 500) != 0) {
       // we're polling one fd here so we know that reading can't block
       int r = read(data->in, readptr, bytes2read);
+
+      if(r <= 0) {
+        ERROR("TS data socket closed.\n");
+        data->status = DST_EXITING;
+	continue;
+      }
+
       bytesread += r;
       bytes2read -= r;
       readptr += r;
 
       if (bytesread < TS_PKT_LEN * 3) {
-        INFO("less than 3 TS packets read, read more.\n");
+        INFO("less than 3 TS packets read (actually:%d), read more.\n", r);
         continue; 
       }
 
@@ -536,7 +543,6 @@ int main(int argc, char **argv) {
           
           dsd.server_addr.sin_port = htons(dsd.msg.u.discover.tsdata_port);
           dwd.in = socket(PF_INET, SOCK_STREAM, 0);
-          INFO("connect data socket to %s:%d\n", inet_ntoa(dsd.server_addr.sin_addr), ntohs(dsd.server_addr.sin_port));
           if( connect(dwd.in, (struct sockaddr *)&dsd.server_addr, sizeof(dsd.server_addr)) < 0) {
             ERROR("Can't connect to server data socket -%m\n");
             close(vfd);
@@ -544,6 +550,7 @@ int main(int argc, char **argv) {
             vts = VTS_DISCONNECTED;
           } else {
 
+          INFO("connected data socket to %s:%d\n", inet_ntoa(dsd.server_addr.sin_addr), ntohs(dsd.server_addr.sin_port));
             dwd.out = vtuner_control;
             dwd.status = DST_UNKNOWN; 
             pthread_create( &dwt, NULL, tsdata_worker, &dwd ); 
