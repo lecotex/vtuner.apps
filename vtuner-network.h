@@ -15,6 +15,11 @@
 
 #define VTUNER_DISCOVER_PORT 0x9989
 
+#define VTUNER_PROTO2 2
+#define VTUNER_PROTO_MAX VTUNER_PROTO2
+
+#define VTUNER_GROUPS_ALL 0xFFFF
+
 typedef enum vtuner_type {
   VT_S = 0x01,
   VT_C = 0x02,
@@ -160,7 +165,7 @@ typedef struct vtuner_discover {
   vtuner_type_t vtype;
   __u16 port;
   __u16 tsdata_port;
-  char tuner_group[80];
+  __u16 tuner_group;
 } vtuner_discover_t;
 
 typedef struct vtuner_update {
@@ -171,7 +176,9 @@ typedef struct vtuner_update {
 } vtuner_update_t;
 
 typedef struct vtuner_net_message {
-  __s32 msg_type;
+  __u8 ver;
+  __u8 cap;
+  __u16 msg_type;
   __u32 serial;
   union {
     vtuner_message_t vtuner;

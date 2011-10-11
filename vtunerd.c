@@ -50,12 +50,13 @@ int main(int argc, char **argv) {
 
 	openlog("vtunerd", LOG_PERROR, LOG_USER);
 
-	write_message(-1, "vtuner server (vtunerd), part of vtuner project\n");
-	write_message(-1, "Copyright (C) 2009-11  Roland Mieslinger\n"
+	write_message(-1, "vtuner server (vtunerd), part of vtuner project\n"
+			"Visit http://code.google.com/p/vtuner/ for more information\n"
+			"Copyright (C) 2009-11 Roland Mieslinger\n"
 			"This is free software; see the source for copying conditions.\n"
-			"There is NO warranty; not even for MERCHANTABILITY or FITNESS FOR A\n"
-			"PARTICULAR PURPOSE.\n");
-	write_message(-1, "Revision:%d DVB:%d.%d allow:%d.x\n", BUILDVER, DVB_API_VERSION, DVB_API_VERSION_MINOR, HAVE_DVB_API_VERSION);
+			"There is NO warranty; not even for MERCHANTABILITY or FITNESS\n"
+			"FOR A PARTICULAR PURPOSE.\n");
+	write_message(-1, "Revision:%d DVB:%d.%d allow:%d.x NetProto:%d\n", BUILDVER, DVB_API_VERSION, DVB_API_VERSION_MINOR, HAVE_DVB_API_VERSION, VTUNER_PROTO_MAX);
 
 	for(i=0; i<MAX_SESSIONS; ++i) session[i].status = SST_IDLE;
 
@@ -104,11 +105,10 @@ int main(int argc, char **argv) {
 	}
 
 	struct sockaddr_in client_so;
-	int tuner_type, tuner_group;
+	int tuner_type, tuner_group = -1, proto = -1;
 
-
-	while(fetch_request(&client_so, &tuner_type, &tuner_group)) {
-		INFO("received discover request, vtuner_type:%d\n", tuner_type);
+	while(fetch_request(&client_so, &proto, &tuner_type, &tuner_group)) {
+		INFO("received discover request proto%d, vtuner_type:%d group:0x%04X\n", proto, tuner_type, tuner_group);
 		for(i=0; i<hw_count; ++i) {
 			DEBUGMAIN("session status:%d session type:%d tuner_type:%d match:%d\n",
 					  session[i].status, session[i].tuner_type, tuner_type,

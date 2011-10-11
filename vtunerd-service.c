@@ -249,7 +249,7 @@ error:
   data->status = DST_ENDED;
 }
 
-int fetch_request(struct sockaddr_in *client_so, int *tuner_type, int *tuner_group) {
+int fetch_request(struct sockaddr_in *client_so, int *proto, int *tuner_type, int *tuner_group) {
 
 	int clientlen = sizeof(*client_so);
 	vtuner_net_message_t msg;
@@ -258,16 +258,25 @@ int fetch_request(struct sockaddr_in *client_so, int *tuner_type, int *tuner_gro
 		if( ! init_vtuner_service()) return 0;
 	}
 
-	INFO("waiting for autodiscover packet ...\n");
-	if( recvfrom(discover_fd, &msg, sizeof(msg), 0, (struct sockaddr *) client_so, &clientlen) >0 ) {
-		ntoh_vtuner_net_message(&msg, 0); // we don't care frontend type
-		*tuner_type = msg.u.discover.vtype;
-		DEBUGSRV("request received\n");
-	} else {
-		return 0;
-	}
+	INFO("waiting for autodiscover packet (groups 0x%04X) ...\n", *tuner_group);
+	do {
+		if( recvfrom(discover_fd, &msg, sizeof(msg), 0, (struct sockaddr *) client_so, &clientlen) <= 0 )
+			return 0;
 
-	return 1;
+		ntoh_vtuner_net_message(&msg, 0); // we don't care frontend type
+		*proto = msg.ver;
+		*tuner_type = msg.u.discover.vtype;
+		if(msg.ver >= VTUNER_PROTO2 && *tuner_group != -1) {
+			if(((*tuner_group) & msg.u.discover.tuner_group) == 0) {
+				INFO("request for group 0x%04X, not accepting\n", msg.u.discover.tuner_group);
+				continue;
+			}
+		}
+		DEBUGSRV("request received (group 0x%04X)\n", msg.u.discover.tuner_group);
+		return 1;
+	} while(1);
+
+	return 0; // should never pass, but to be sure 
 }
 
 int run_worker(int adapter, int fe, int demux, int dvr, struct sockaddr_in *client_so) {

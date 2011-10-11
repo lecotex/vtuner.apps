@@ -167,7 +167,7 @@ int ntoh_get_message_type( vtuner_net_message_t* netmsg ) {
 }
 
 void hton_vtuner_net_message(vtuner_net_message_t* netmsg, vtuner_type_t type) {
-  DEBUGNET(" %d %d", netmsg->msg_type, netmsg->u.vtuner.type );
+  DEBUGNET(" v%d/%x %d %d", netmsg->ver, netmsg->cap, netmsg->msg_type, netmsg->u.vtuner.type );
 
   switch (netmsg->msg_type) {
     case MSG_GET_FRONTEND:
@@ -236,6 +236,7 @@ void hton_vtuner_net_message(vtuner_net_message_t* netmsg, vtuner_type_t type) {
       break;
     case MSG_DISCOVER:
 //      DEBUGNETC(" %d %d %d %d", netmsg->u.discover.port, netmsg->u.discover.fe_info.type, netmsg->u.discover.fe_info.frequency_min, netmsg->u.discover.fe_info.frequency_max);
+      HTONSc( netmsg->u.discover, tuner_group);
       HTONSc( netmsg->u.discover, port);
       HTONSc( netmsg->u.discover, tsdata_port);
       HTONLc( netmsg->u.discover, vtype);
@@ -247,11 +248,16 @@ void hton_vtuner_net_message(vtuner_net_message_t* netmsg, vtuner_type_t type) {
       HTONSc( netmsg->u.update, ss);
       HTONSc( netmsg->u.update, snr);
       break;    
+    case MSG_NULL:
+      break;
+    default:
+      WARN("unkown message type %d\n",netmsg->msg_type);
     }
   }
 
   if(netmsg->msg_type < MSG_DISCOVER) HTONLc( netmsg->u.vtuner, type );
-  netmsg->msg_type = htonl( netmsg->msg_type );
+  netmsg->msg_type = htons( netmsg->msg_type );
+  netmsg->ver = VTUNER_PROTO2;
   
   DEBUGNETC(" %x %x\n", netmsg->msg_type, netmsg->u.vtuner.type);
   #ifdef DEBUG_NET
@@ -263,10 +269,11 @@ void ntoh_vtuner_net_message(vtuner_net_message_t* netmsg, vtuner_type_t type) {
   #ifdef DEBUG_NET
     print_vtuner_net_message(netmsg);
   #endif
-  DEBUGNET(" %x %x", netmsg->msg_type, netmsg->u.vtuner.type );
+  DEBUGNET(" v%d/%x %d %d", netmsg->ver, netmsg->cap, netmsg->msg_type, netmsg->u.vtuner.type );
 
-  netmsg->msg_type = htonl( netmsg->msg_type );
+  netmsg->msg_type = htons( netmsg->msg_type );
   if(netmsg->msg_type < MSG_DISCOVER) HTONLc( netmsg->u.vtuner, type );
+  netmsg->ver = VTUNER_PROTO2;
 
   DEBUGNETC(" %d %d", netmsg->msg_type, netmsg->u.vtuner.type );
 
@@ -336,6 +343,7 @@ void ntoh_vtuner_net_message(vtuner_net_message_t* netmsg, vtuner_type_t type) {
       NTOHLc( netmsg->u.vtuner.body, prop.cmd );
       break;
     case MSG_DISCOVER:
+      NTOHSc( netmsg->u.discover, tuner_group);
       NTOHSc( netmsg->u.discover, port);
       NTOHSc( netmsg->u.discover, tsdata_port);
       NTOHLc( netmsg->u.discover, vtype);
@@ -347,6 +355,10 @@ void ntoh_vtuner_net_message(vtuner_net_message_t* netmsg, vtuner_type_t type) {
       NTOHSc( netmsg->u.update, ss);
       NTOHSc( netmsg->u.update, snr);
       break;
+    case MSG_NULL:
+      break;
+    default:
+      WARN("unkown message type %d\n",netmsg->msg_type);
     }
   }
   DEBUGNETC("\n");
