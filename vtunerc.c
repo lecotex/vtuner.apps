@@ -226,14 +226,16 @@ int *discover_worker(void *d) {
     msg_addr.sin_addr.s_addr = htonl(INADDR_BROADCAST);
   msg_addr.sin_port = htons(data->port);
 
-  memset(&data->msg, 0, sizeof(data->msg));
-  data->msg.msg_type = MSG_DISCOVER;
-  data->msg.u.discover.vtype = data->types;
-  data->msg.u.discover.port = 0;
-  hton_vtuner_net_message(&data->msg, 0); // we don't care tuner type for conversion of discover
-
   int timeo = 300;
   do {
+
+    memset(&data->msg, 0, sizeof(data->msg));
+    data->msg.msg_type = MSG_DISCOVER;
+    data->msg.u.discover.vtype = data->types;
+    data->msg.u.discover.tuner_group = data->groups;
+    data->msg.u.discover.port = 0;
+    hton_vtuner_net_message(&data->msg, 0); // we don't care tuner type for conversion of discover
+
     INFO("Sending %sdiscover message for device types %x\n", data->direct_ip ? "direct " : "", data->types);
     sendto(discover_fd, &data->msg, sizeof(data->msg), 0, (struct sockaddr *) &msg_addr, sizeof(msg_addr));
     struct pollfd pfd[] = { { discover_fd, POLLIN, 0 } }; 
@@ -248,7 +250,7 @@ int *discover_worker(void *d) {
   data->server_addr.sin_port = data->msg.u.discover.port; // no need for ntoh here
   ntoh_vtuner_net_message(&data->msg, 0);
   
-  INFO("Received discover message from %s control %d data %d\n", inet_ntoa(data->server_addr.sin_addr), data->msg.u.discover.port, data->msg.u.discover.tsdata_port);
+  INFO("Received discover message from %s proto%d control %d data %d\n", inet_ntoa(data->server_addr.sin_addr), data->msg.ver, data->msg.u.discover.port, data->msg.u.discover.tsdata_port);
   data->status = DWS_DISCOVERD;
 
 discover_worker_end:
@@ -330,7 +332,7 @@ int main(int argc, char **argv) {
   struct dvb_frontend_info* vtuner_info[MAX_NUM_VTUNER_MODES];
   int types[MAX_NUM_VTUNER_MODES];
   char *pext, direct_ip[128];
-  unsigned int groups = 0xFFFFFFFF; // means 'ANY group'
+  unsigned int groups = VTUNER_GROUPS_ALL;
   unsigned int discover_port = VTUNER_DISCOVER_PORT;
   int argadd = 0;
   int vtuner_control;
@@ -346,12 +348,13 @@ int main(int argc, char **argv) {
   modes = 0;
   direct_ip[0] = '\0';
 
-  write_message(-1, "vtuner client (vtunerc), part of vtuner project\n");
-  write_message(-1, "Copyright (C) 2009-11  Roland Mieslinger\n"
+  write_message(-1, "vtuner client (vtunerc), part of vtuner project\n"
+			"Visit http://code.google.com/p/vtuner/ for more information\n"
+			"Copyright (C) 2009-11 Roland Mieslinger\n"
 			"This is free software; see the source for copying conditions.\n"
-			"There is NO warranty; not even for MERCHANTABILITY or FITNESS FOR A\n"
-			"PARTICULAR PURPOSE.\n");
-  write_message(-1, "Revision:%d DVB:%d.%d allow:%d.x\n", BUILDVER, DVB_API_VERSION, DVB_API_VERSION_MINOR, HAVE_DVB_API_VERSION);
+			"There is NO warranty; not even for MERCHANTABILITY or FITNESS\n"
+			"FOR A PARTICULAR PURPOSE.\n");
+  write_message(-1, "Revision:%d DVB:%d.%d allow:%d.x NetProto:%d\n", BUILDVER, DVB_API_VERSION, DVB_API_VERSION_MINOR, HAVE_DVB_API_VERSION, VTUNER_PROTO_MAX);
 
   while((c = getopt(argc, argv, "d:f:n:r:x:hv:")) != -1) {
     switch(c) {
@@ -367,38 +370,49 @@ int main(int argc, char **argv) {
     case 'f': // frontends type (eg: s2,c,t)
       act = optarg;
       do {
+        char *msk;
         char *nxt = strchr(act, ',');
 	if(nxt)
 	  *nxt = '\0';
-        if(strncmp(act,"s2",strlen("s2"))==0) {
+        if((msk = strchr(act, ':')))
+	  *msk = '\0';
+
+	// tuner type parsing
+        if(strcmp(act,"s2")==0) {
           types[modes] = VT_S | VT_S2;
           vtuner_info[modes] = &fe_info_dvbs2;
           strncpy(ctypes[modes],"DVB-S2",sizeof(ctypes[0]));
-        } else if(strncmp(act,"S2",strlen("S2"))==0) {
+        } else if(strcmp(act,"S2")==0) {
           types[modes] = VT_S2;
           vtuner_info[modes] = &fe_info_dvbs2;
           strncpy(ctypes[modes],"DVB-S2",sizeof(ctypes[0]));
-        } else if(strncmp(act,"s",strlen("s"))==0) {
+        } else if(strcmp(act,"s")==0) {
           types[modes] = VT_S | VT_S2;
           vtuner_info[modes] = &fe_info_dvbs;
           strncpy(ctypes[modes],"DVB-S",sizeof(ctypes[0]));
-        } else if(strncmp(act,"S",strlen("S"))==0) {
+        } else if(strcmp(act,"S")==0) {
           types[modes] = VT_S;
           vtuner_info[modes] = &fe_info_dvbs;
           strncpy(ctypes[modes],"DVB-S",sizeof(ctypes[0]));
-        } else if(strncmp(act,"c",strlen("c"))==0) {
+        } else if(strcmp(act,"c")==0) {
           types[modes] = VT_C;
           vtuner_info[modes] = &fe_info_dvbc;
           strncpy(ctypes[modes],"DVB-C",sizeof(ctypes[0]));
-        } else if(strncmp(act,"t",strlen("t"))==0) {
+        } else if(strcmp(act,"t")==0) {
           types[modes] = VT_T;
           vtuner_info[modes] = &fe_info_dvbt;
           strncpy(ctypes[modes],"DVB-T",sizeof(ctypes[0]));
         } else {
-          ERROR("unknown tuner mode specified: %s allowed values are: -s -S -s2 -S2 -c -t\n", optarg);
+          ERROR("unknown tuner mode specified: %s allowed values are: -s -S -s2 -S2 -c -t (with optional group mask)\n", optarg);
           exit(1);
         }
-	// TODO: add tuner_mask parsing
+
+	// tuner mask parsing
+	if(msk) {
+	  if(sscanf(msk + 1, "%i", &groups) < 1)
+	    groups = VTUNER_GROUPS_ALL;
+	}
+
 	act = nxt;
 	if(nxt)
 	  act++;
@@ -503,7 +517,7 @@ int main(int argc, char **argv) {
     if( vts == VTS_DISCONNECTED ) {
       DEBUGMAIN("no server connected. discover thread is %d (DWS_IDLE:%d, DWS_RUNNING:%d)\n", dsd.status, DWS_IDLE, DWS_RUNNING);
       if( dsd.status == DWS_IDLE ) {
-        DEBUGMAIN("changeing frontend mode to %s\n", ctypes[mode]);
+        DEBUGMAIN("changing frontend mode to %s\n", ctypes[mode]);
 	if( modes == 1 ) {
           if (ioctl(vtuner_control, VTUNER_SET_TYPE, ctypes[0])) {
             ERROR("VTUNER_SET_TYPE failed - %m\n");
@@ -525,7 +539,7 @@ int main(int argc, char **argv) {
           exit(1);
         }
 
-        DEBUGMAIN("Start discover worker for device type %x\n", types[mode]);
+        DEBUGMAIN("Start discover worker for device type %x groups %x\n", types[mode], groups);
         dsd.types = types[mode];
         dsd.status = DWS_RUNNING;
         pthread_create( &dst, NULL, discover_worker, &dsd);
