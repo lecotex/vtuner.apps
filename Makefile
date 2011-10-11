@@ -21,7 +21,7 @@ mipsel15:
 	$(MAKE) -C build/mipsel15
 	
 sh4:         
-	$(MAKE) -C build/sh4
+	$(MAKE) -C build/sh4 all
 
 ipkg:   mipsel
 	$(MAKE) -C pkgs ipkg
