@@ -160,9 +160,7 @@
 #endif
 
 int ntoh_get_message_type( vtuner_net_message_t* netmsg ) {
-  fprintf(stderr,"ntoh_get_message_type(1): %x\n",netmsg->msg_type);
-  int hmsgtype = ntohl(netmsg->msg_type);
-  fprintf(stderr,"ntoh_get_message_type(2): %x\n", hmsgtype);
+  int hmsgtype = ntohs(netmsg->msg_type);
   return hmsgtype;
 }
 
@@ -248,10 +246,9 @@ void hton_vtuner_net_message(vtuner_net_message_t* netmsg, vtuner_type_t type) {
       HTONSc( netmsg->u.update, ss);
       HTONSc( netmsg->u.update, snr);
       break;    
-    case MSG_NULL:
-      break;
     default:
-      WARN("unkown message type %d\n",netmsg->msg_type);
+      if(netmsg->msg_type < 1 || (netmsg->msg_type > MSG_GET_PROPERTY && netmsg->msg_type < MSG_NULL ) || netmsg->msg_type > MSG_UPDATE)
+        WARN("unkown message type %d\n",netmsg->msg_type);
     }
   }
 
@@ -271,7 +268,7 @@ void ntoh_vtuner_net_message(vtuner_net_message_t* netmsg, vtuner_type_t type) {
   #endif
   DEBUGNET(" v%d/%x %d %d", netmsg->ver, netmsg->cap, netmsg->msg_type, netmsg->u.vtuner.type );
 
-  netmsg->msg_type = htons( netmsg->msg_type );
+  netmsg->msg_type = ntohs( netmsg->msg_type );
   if(netmsg->msg_type < MSG_DISCOVER) HTONLc( netmsg->u.vtuner, type );
   netmsg->ver = VTUNER_PROTO2;
 
@@ -355,10 +352,9 @@ void ntoh_vtuner_net_message(vtuner_net_message_t* netmsg, vtuner_type_t type) {
       NTOHSc( netmsg->u.update, ss);
       NTOHSc( netmsg->u.update, snr);
       break;
-    case MSG_NULL:
-      break;
     default:
-      WARN("unkown message type %d\n",netmsg->msg_type);
+      if(netmsg->msg_type < 1 || (netmsg->msg_type > MSG_GET_PROPERTY && netmsg->msg_type < MSG_NULL ) || netmsg->msg_type > MSG_UPDATE)
+        WARN("unknown message type %d\n",netmsg->msg_type);
     }
   }
   DEBUGNETC("\n");
