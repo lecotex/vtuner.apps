@@ -166,6 +166,7 @@ typedef struct vtuner_discover {
   __u16 port;
   __u16 tsdata_port;
   __u16 tuner_group;
+  __u8 reserved[80-2];
 } vtuner_discover_t;
 
 typedef struct vtuner_update {
