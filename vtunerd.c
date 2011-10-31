@@ -21,11 +21,6 @@ int use_syslog = 1;
 
 #define MAX_SESSIONS 8
 
-typedef enum vtuner_session_status {
-	SST_IDLE,
-	SST_BUSY
-} vtuner_session_status_t;
-
 typedef struct vtuner_session {
 	vtuner_session_status_t status;
 	int tuner_type;
@@ -56,7 +51,8 @@ int main(int argc, char **argv) {
 			"This is free software; see the source for copying conditions.\n"
 			"There is NO warranty; not even for MERCHANTABILITY or FITNESS\n"
 			"FOR A PARTICULAR PURPOSE.\n");
-	write_message(-1, "Revision:%d DVB:%d.%d allow:%d.x NetProto:%d\n", BUILDVER, DVB_API_VERSION, DVB_API_VERSION_MINOR, HAVE_DVB_API_VERSION, VTUNER_PROTO_MAX);
+
+	write_message(-1, "Revision:%d%s DVB:%d.%d allow:%d.x NetProto:%d MsgSize:%d, Debug:0x%x\n", BUILDVER, MODFLAG, DVB_API_VERSION, DVB_API_VERSION_MINOR, HAVE_DVB_API_VERSION, VTUNER_PROTO_MAX, sizeof(vtuner_net_message_t), dbg_level);
 
 	for(i=0; i<MAX_SESSIONS; ++i) session[i].status = SST_IDLE;
 

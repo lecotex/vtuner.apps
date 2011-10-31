@@ -354,7 +354,8 @@ int main(int argc, char **argv) {
 			"This is free software; see the source for copying conditions.\n"
 			"There is NO warranty; not even for MERCHANTABILITY or FITNESS\n"
 			"FOR A PARTICULAR PURPOSE.\n");
-  write_message(-1, "Revision:%d DVB:%d.%d allow:%d.x NetProto:%d\n", BUILDVER, DVB_API_VERSION, DVB_API_VERSION_MINOR, HAVE_DVB_API_VERSION, VTUNER_PROTO_MAX);
+
+  write_message(-1, "Revision:%d%s DVB:%d.%d allow:%d.x NetProto:%d MsgSize:%d, Debug:0x%x\n", BUILDVER, MODFLAG, DVB_API_VERSION, DVB_API_VERSION_MINOR, HAVE_DVB_API_VERSION, VTUNER_PROTO_MAX, sizeof(vtuner_net_message_t), dbg_level);
 
   while((c = getopt(argc, argv, "d:f:n:r:x:hv:")) != -1) {
     switch(c) {
@@ -453,7 +454,14 @@ int main(int argc, char **argv) {
 #ifdef HAVE_DREAMBOX_HARDWARE
       ERROR("Command options: [-d /dev/ctrl_name] [-n direct_ip[:port]] -f <dvb_type>[:tuner_mask][,<dvb_type_2>[:tuner_mask_2]][,dvb_type_3[:tuner_mask_3]] [-r rbuf_size] [-x max_delay_or_0]\n");
 #else
-      ERROR("Command options: [-d /dev/ctrl_name] [-n direct_ip[:port]] -f <dvb_type>[:tuner_mask] [-r rbuf_size] [-x max_delay_or_0]\n");
+      write_message(-1, "\nCommand line options:\n"
+                      "  Required:\n"
+                      "    -f dvb_type[:tuner_mask] : tuner type to ask (dvb_type=S,S2,T,C) and optional tuner group mask (every bit represent one tuner group)\n"
+                      "  Optional:\n"
+                      "    -d dev_name              : path to controlling device (usually /dev/vtunerc0)\n"
+                      "    -n direct_ip[:port]]     : do direct request for tuner (multicast by default)\n"
+                      "    -r rbuf_size             : receive buffer size\n"
+                      "    -x max_delay             : max delay or 0\n");
 #endif
       exit(1);
       break;

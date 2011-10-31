@@ -1,0 +1,15 @@
+syntax: glob
+*.orig
+*.old
+*.rej
+*~
+*.o
+CVS
+.cvsignore
+.gitignore
+.svnignore
+Make.config
+
+syntax: regexp
+.*\#.*\#$
+
