@@ -224,8 +224,6 @@ void print_vtuner_net_message(vtuner_net_message_t*);
 #define VTUNER_SET_NAME		_IOW(VTUNER_MAJOR, 3, char *)
 #define VTUNER_SET_TYPE		_IOW(VTUNER_MAJOR, 4, char *)
 #define VTUNER_SET_FE_INFO	_IOW(VTUNER_MAJOR, 6, struct dvb_frontend_info *)
-#define VTUNER_SET_NUM_MODES	_IOW(VTUNER_MAJOR, 7, int)
-#define VTUNER_SET_MODES	_IOW(VTUNER_MAJOR, 8, char *)
 #endif
 
 #endif

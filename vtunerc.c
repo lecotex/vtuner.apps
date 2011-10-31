@@ -341,9 +341,6 @@ int main(int argc, char **argv) {
   int c;
   char *act;
 
-  // new arg processing
-  // -d ctrl-dev_name -n ip:port -f s2:group_mask -f t:group_mask,c:group_mask -x delay_or_0 -r rmax -v verbosity
-
   mode = 0;
   modes = 0;
   direct_ip[0] = '\0';
@@ -451,18 +448,19 @@ int main(int argc, char **argv) {
       break;
 
     case 'h': // help
-#ifdef HAVE_DREAMBOX_HARDWARE
-      ERROR("Command options: [-d /dev/ctrl_name] [-n direct_ip[:port]] -f <dvb_type>[:tuner_mask][,<dvb_type_2>[:tuner_mask_2]][,dvb_type_3[:tuner_mask_3]] [-r rbuf_size] [-x max_delay_or_0]\n");
-#else
       write_message(-1, "\nCommand line options:\n"
                       "  Required:\n"
-                      "    -f dvb_type[:tuner_mask] : tuner type to ask (dvb_type=S,S2,T,C) and optional tuner group mask (every bit represent one tuner group)\n"
+#ifdef HAVE_DREAMBOX_HARDWARE
+                      "    -f dvb_type[:tuner_mask][,<dvb_type_2>[:tuner_mask_2][,dvb_type_3[:tuner_mask_3]]] : tuner type to ask (dvb_type=S,s,S2,s2,T,C) and optional tuner group mask (every bit represents one tuner group)\n"
+#else
+                      "    -f dvb_type[:tuner_mask] : tuner type to ask (dvb_type=S,S2,T,C) and optional tuner group mask (every bit represents one tuner group)\n"
+#endif
                       "  Optional:\n"
                       "    -d dev_name              : path to controlling device (usually /dev/vtunerc0)\n"
-                      "    -n direct_ip[:port]]     : do direct request for tuner (multicast by default)\n"
+                      "    -n direct_ip[:port]      : do direct request for tuner (multicast by default)\n"
                       "    -r rbuf_size             : receive buffer size\n"
-                      "    -x max_delay             : max delay or 0\n");
-#endif
+                      "    -x max_delay             : max delay or 0\n"
+                      "    -v level                 : verbosity level\n");
       exit(1);
       break;
     }
@@ -526,6 +524,12 @@ int main(int argc, char **argv) {
       DEBUGMAIN("no server connected. discover thread is %d (DWS_IDLE:%d, DWS_RUNNING:%d)\n", dsd.status, DWS_IDLE, DWS_RUNNING);
       if( dsd.status == DWS_IDLE ) {
         DEBUGMAIN("changing frontend mode to %s\n", ctypes[mode]);
+#ifndef HAVE_DREAMBOX_HARDWARE
+        if (ioctl(vtuner_control, VTUNER_SET_TYPE, ctypes[0])) {
+          ERROR("VTUNER_SET_TYPE failed - %m\n");
+          exit(1);
+        }
+#else
 	if( modes == 1 ) {
           if (ioctl(vtuner_control, VTUNER_SET_TYPE, ctypes[0])) {
             ERROR("VTUNER_SET_TYPE failed - %m\n");
@@ -541,6 +545,7 @@ int main(int argc, char **argv) {
             exit(1);
           }
 	}
+#endif
 
         if (ioctl(vtuner_control, VTUNER_SET_FE_INFO, vtuner_info[mode])) {
           ERROR("VTUNER_SET_FE_INFO failed - %m\n");
