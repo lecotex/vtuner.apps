@@ -21,6 +21,11 @@
 #define DEBUGSRVI(msg, ...) init_message((0x0040, "[%d %s:%u] debug: " msg, getpid(), __FILE__, __LINE__, ## __VA_ARGS__)
 #define DEBUGSRVC(msg, ...) append_message(0x0040, msg, ## __VA_ARGS__)
 
+typedef enum vtuner_session_status {
+	SST_IDLE,
+	SST_BUSY
+} vtuner_session_status_t;
+
 int fetch_request(struct sockaddr_in*, int*, int*, int*);
 int run_worker(int, int, int, int, struct sockaddr_in*);
 
