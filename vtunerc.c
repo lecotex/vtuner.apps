@@ -353,7 +353,7 @@ int main(int argc, char **argv) {
 			"There is NO warranty; not even for MERCHANTABILITY or FITNESS\n"
 			"FOR A PARTICULAR PURPOSE.\n");
 
-  write_message(-1, "Revision:%d%s DVB:%d.%d allow:%d.x NetProto:%d MsgSize:%d, Debug:0x%x\n", BUILDVER, MODFLAG, DVB_API_VERSION, DVB_API_VERSION_MINOR, HAVE_DVB_API_VERSION, VTUNER_PROTO_MAX, sizeof(vtuner_net_message_t), dbg_level);
+  write_message(-1, "Revision:%s%s DVB:%d.%d allow:%d.x NetProto:%d MsgSize:%d, Debug:0x%x\n", BUILDVER, MODFLAG, DVB_API_VERSION, DVB_API_VERSION_MINOR, HAVE_DVB_API_VERSION, VTUNER_PROTO_MAX, sizeof(vtuner_net_message_t), dbg_level);
 
   while((c = getopt(argc, argv, "d:f:n:r:x:hv:")) != -1) {
     switch(c) {
