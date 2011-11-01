@@ -1,12 +1,12 @@
 
-LOCVER := $(shell hg id -n -r tip)
-MODFLAG := $(shell if `hg status | grep ^M | grep \.[ch]\$ > /dev/null` ; then echo /dirty ; fi )
+LOCVER := $(shell hg id | tr ' ' / )
+MODFLAG := $(shell if `hg status | grep ^M | grep \.[ch]$$ > /dev/null` ; then echo /dirty ; fi )
 
 ../../dist/$(ARCH)/vtunerd.$(ARCH): ../../vtunerd.c vtunerd-service.o vtuner-network.o vtuner-utils.o $(DRIVER).o
-	$(CC) $(CFLAGS) -DBUILDVER=$(LOCVER) -DMODFLAG=\"$(MODFLAG)\" $(LDFLAGS) -o ../../dist/$(ARCH)/vtunerd.$(ARCH) vtuner-network.o vtunerd-service.o $(DRIVER).o vtuner-utils.o ../../vtunerd.c
+	$(CC) $(CFLAGS) -DBUILDVER="\"$(LOCVER)\"" -DMODFLAG=\"$(MODFLAG)\" $(LDFLAGS) -o ../../dist/$(ARCH)/vtunerd.$(ARCH) vtuner-network.o vtunerd-service.o $(DRIVER).o vtuner-utils.o ../../vtunerd.c
 
 ../../dist/$(ARCH)/vtunerc.$(ARCH): ../../vtunerc.c vtuner-network.o vtuner-utils.o
-	$(CC) $(CFLAGS) -DBUILDVER=$(LOCVER) -DMODFLAG=\"$(MODFLAG)\" $(LDFLAGS) -o ../../dist/$(ARCH)/vtunerc.$(ARCH) vtuner-network.o vtuner-utils.o ../../vtunerc.c
+	$(CC) $(CFLAGS) -DBUILDVER="\"$(LOCVER)\"" -DMODFLAG=\"$(MODFLAG)\" $(LDFLAGS) -o ../../dist/$(ARCH)/vtunerc.$(ARCH) vtuner-network.o vtuner-utils.o ../../vtunerc.c
 	
 vtunerd-service.o: ../../vtunerd-service.c ../../vtunerd-service.h
 	$(CC) $(CFLAGS) -c -o vtunerd-service.o ../../vtunerd-service.c
