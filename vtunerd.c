@@ -42,6 +42,7 @@ void *session_worker(void *data) {
 int main(int argc, char **argv) {
 	int i;
 	vtuner_session_t session[MAX_SESSIONS];
+	char *envdbg;
 
 	openlog("vtunerd", LOG_PERROR, LOG_USER);
 
@@ -51,6 +52,9 @@ int main(int argc, char **argv) {
 			"This is free software; see the source for copying conditions.\n"
 			"There is NO warranty; not even for MERCHANTABILITY or FITNESS\n"
 			"FOR A PARTICULAR PURPOSE.\n");
+
+	if((envdbg = getenv("VTUNERD_DEBUG_LEVEL")))
+		sscanf(envdbg, "%i", &dbg_level);
 
 	write_message(-1, "Revision:%d%s DVB:%d.%d allow:%d.x NetProto:%d MsgSize:%d, Debug:0x%x\n", BUILDVER, MODFLAG, DVB_API_VERSION, DVB_API_VERSION_MINOR, HAVE_DVB_API_VERSION, VTUNER_PROTO_MAX, sizeof(vtuner_net_message_t), dbg_level);
 
