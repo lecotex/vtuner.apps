@@ -14,6 +14,7 @@
 #include <sys/stat.h>
 #include <unistd.h>
 #include <linux/dvb/version.h>
+#include <time.h>
 
 #include "vtuner-network.h"
 

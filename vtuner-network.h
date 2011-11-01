@@ -27,10 +27,6 @@ typedef enum vtuner_type {
   VT_S2 = 0x08
 } vtuner_type_t;
 
-#include <sys/types.h>
-#include <sys/socket.h>
-#include <netinet/in.h>
-
 #define MSG_SET_FRONTEND         1
 #define MSG_GET_FRONTEND         2
 #define MSG_READ_STATUS          3
