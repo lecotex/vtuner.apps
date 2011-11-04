@@ -25,7 +25,7 @@
 #define TS_PKT_LEN 188
 #define TS_HDR_SYNC 0x47
 
-int dbg_level =  0x00ff;
+int dbg_level =  0x0003;
 int use_syslog = 1;
 int opt_delay = 50;
 // 2010-01-30
@@ -135,11 +135,26 @@ void *tsdata_worker(void *d) {
       // packets in the range of 70% - 90% of rmax
     
       if (opt_delay) {
-        if( bytesread > rmax && delay > 15) {
-          delay -= 2;
+        if( bytesread >= rmax && delay >= 70) {
+          delay = 10;
           DEBUGMAIN("decreased delay: bytesread:%d rmax:%d, delay:%d\n", bytesread, rmax, delay);
-        } else if( bytesread < 0.70*rmax && delay < 95) {
-          delay += 2;
+        } else if( bytesread > 0.90*rmax && delay > 4) {
+          if( bytesread > 2*rmax )
+            delay = 3;
+          else if(delay < 10)
+            delay -= 2;
+          else if(delay < 20)
+            delay -= 4;
+          else if(delay < 40)
+            delay -= 8;
+          else
+	    delay -= 16;
+          DEBUGMAIN("decreased delay: bytesread:%d rmax:%d, delay:%d\n", bytesread, rmax, delay);
+        } else if( bytesread < 0.50*rmax && delay < 70) {
+          if(delay < 20)
+            delay += 2;
+          else
+            delay += 4;
           DEBUGMAIN("increased delay: bytesread:%d rmax:%d, delay:%d\n", bytesread, rmax, delay);
         } 
       }
@@ -166,6 +181,9 @@ void *tsdata_worker(void *d) {
         bytesread = tail;
         bytes2read = sizeof(buf) - tail ;
       }
+    } else {
+      delay = 10; 
+      DEBUGMAIN("decreased delay: bytesread:%d rmax:%d, delay:%d\n", bytesread, rmax, delay);
     }
   }
 
