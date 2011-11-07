@@ -8,8 +8,11 @@
 
 __thread char msg[MAX_MSGSIZE];
 
-void write_message(int level, const char* fmt, ... ) {
-  if( level & dbg_level  ) {
+void write_message(const unsigned int mtype, const int level, const char* fmt, ... ) {
+  if( !(mtype & dbg_mask ) )
+    return;
+
+  if( level <= dbg_level ) {
 
     char tn[MAX_MSGSIZE];
     va_list ap;
@@ -21,9 +24,9 @@ void write_message(int level, const char* fmt, ... ) {
     if(use_syslog) {
       int priority;
       switch(level) {
-        case 0: priority=LOG_ERR; break;
-        case 1: priority=LOG_WARNING; break;
-        case 2: priority=LOG_INFO; break;
+        case 1: priority=LOG_ERR; break;
+        case 2: priority=LOG_WARNING; break;
+        case 3: priority=LOG_INFO; break;
         default: priority=LOG_DEBUG; break;
       }
       syslog(priority, "%s", msg);

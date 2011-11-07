@@ -27,12 +27,12 @@ int hw_init(vtuner_hw_t* hw, int adapter, int frontend, int demux, int dvr) {
   sprintf( devstr, "/dev/dvb/adapter%d/frontend%d", hw->adapter, hw->frontend);
   hw->frontend_fd = open( devstr, O_RDWR);
   if(hw->frontend_fd < 0) {
-    ERROR("failed to open %s\n", devstr);
+    ERROR(MSG_NET, "failed to open %s\n", devstr);
     goto error;
   }
 
   if(ioctl(hw->frontend_fd, FE_GET_INFO, &hw->fe_info) != 0) {
-    ERROR("FE_GET_INFO failed for %s\n", devstr);
+    ERROR(MSG_NET, "FE_GET_INFO failed for %s\n", devstr);
     goto error;    
   }
 
@@ -51,20 +51,20 @@ int hw_init(vtuner_hw_t* hw, int adapter, int frontend, int demux, int dvr) {
     case FE_QAM:  hw->type = VT_C; break;
     case FE_OFDM: hw->type = VT_T; break;
     default: 
-      ERROR("Unknown frontend type %d\n", hw->fe_info.type); 
+      ERROR(MSG_NET, "Unknown frontend type %d\n", hw->fe_info.type); 
       goto cleanup_fe;
   }
-  INFO("FE_GET_INFO dvb-type:%d vtuner-type:%d\n", hw->fe_info.type, hw->type);
+  INFO(MSG_NET, "FE_GET_INFO dvb-type:%d vtuner-type:%d\n", hw->fe_info.type, hw->type);
 
   sprintf( devstr, "/dev/dvb/adapter%d/dvr%d", hw->adapter, dvr); 
   hw->streaming_fd = open( devstr, O_RDONLY);
   if(hw->streaming_fd < 0) {
-    ERROR("failed to open %s\n", devstr);
+    ERROR(MSG_NET, "failed to open %s\n", devstr);
     goto cleanup_fe;
   }
 
   if( fcntl(hw->streaming_fd, F_SETFL, O_NONBLOCK) != 0) {
-      ERROR("O_NONBLOCK failed for %s\n",devstr);
+      ERROR(MSG_NET, "O_NONBLOCK failed for %s\n",devstr);
       goto cleanup_fe;
   }
 
@@ -72,17 +72,17 @@ int hw_init(vtuner_hw_t* hw, int adapter, int frontend, int demux, int dvr) {
   for(i=0; i<MAX_DEMUX; ++i) {
     hw->demux_fd[i] = open(devstr, O_RDWR|O_NONBLOCK);
     if(hw->demux_fd[i]<0) {
-      ERROR("failed to open %s\n", devstr);
+      ERROR(MSG_NET, "failed to open %s\n", devstr);
       goto cleanup_demux;
     }
 
     if( ioctl(hw->demux_fd[i], DMX_SET_BUFFER_SIZE, 1024*16) != 0 ) {
-      ERROR("DMX_SET_BUFFER_SIZE failed for %s\n",devstr);
+      ERROR(MSG_NET, "DMX_SET_BUFFER_SIZE failed for %s\n",devstr);
       goto cleanup_demux;
     }
 /*
     if( fcntl(hw->demux_fd[i], F_SETFL, O_NONBLOCK) != 0) {
-      ERROR("O_NONBLOCK failed for %s\n",devstr);
+      ERROR(MSG_NET, "O_NONBLOCK failed for %s\n",devstr);
       goto cleanup_demux;
     }
 */
@@ -135,7 +135,7 @@ void print_frontend_parameters(vtuner_hw_t* hw, struct dvb_frontend_parameters* 
 int hw_get_frontend(vtuner_hw_t* hw, struct dvb_frontend_parameters* fe_params) {
   int ret;
   ret = ioctl(hw->frontend_fd, FE_GET_FRONTEND, fe_params);
-  if( ret != 0 ) WARN("FE_GET_FRONTEND failed - %m\n");
+  if( ret != 0 ) WARN(MSG_NET, "FE_GET_FRONTEND failed - %m\n");
   return ret;
 }
 
@@ -143,7 +143,7 @@ int hw_set_frontend(vtuner_hw_t* hw, struct dvb_frontend_parameters* fe_params) 
   int ret;
   char msg[1024];
   print_frontend_parameters(hw, fe_params, msg, sizeof(msg));
-  INFO("FE_SET_FRONTEND parameters: %s", msg);
+  INFO(MSG_NET, "FE_SET_FRONTEND parameters: %s", msg);
   #if DVB_API_VERSION < 5 
     ret = ioctl(hw->frontend_fd, FE_SET_FRONTEND, fe_params);
   #else
@@ -159,7 +159,7 @@ int hw_set_frontend(vtuner_hw_t* hw, struct dvb_frontend_parameters* fe_params) 
     cmdseq.num = 1;
     cmdseq.props = CLEAR;
     if( ioctl(hw->frontend_fd, FE_SET_PROPERTY, &cmdseq) != 0 )
-    	WARN("FE_SET_FRONTEND DTV_CLEAR failed - %m\n");
+    	WARN(MSG_NET, "FE_SET_FRONTEND DTV_CLEAR failed - %m\n");
 
     struct dtv_property S[] = {
       { .cmd = DTV_DELIVERY_SYSTEM,   .u.data = SYS_DVBS },
@@ -204,13 +204,13 @@ int hw_set_frontend(vtuner_hw_t* hw, struct dvb_frontend_parameters* fe_params) 
             case 0: cmdseq.props[6].u.data = ROLLOFF_35; break;
             case 4: cmdseq.props[6].u.data = ROLLOFF_25; break;
             case 8: cmdseq.props[6].u.data = ROLLOFF_20; break;
-            default: WARN("ROLLOFF unknnown\n");
+            default: WARN(MSG_NET, "ROLLOFF unknnown\n");
           }
           switch( fe_params->inversion & 0x30 ) {
             case 0:    cmdseq.props[7].u.data = PILOT_OFF;  break;
             case 0x10: cmdseq.props[7].u.data = PILOT_ON;   break;
             case 0x20: cmdseq.props[7].u.data = PILOT_AUTO; break;
-            default: WARN("PILOT unknown\n");
+            default: WARN(MSG_NET, "PILOT unknown\n");
           }
           cmdseq.props[5].u.data &= 0x04;
         }
@@ -223,15 +223,15 @@ int hw_set_frontend(vtuner_hw_t* hw, struct dvb_frontend_parameters* fe_params) 
         ret = ioctl(hw->frontend_fd, FE_SET_FRONTEND, fe_params); 
         break;
       default:
-	WARN("tuning not implemented for HW-type:%d (S:%d, S2:%d C:%d T:%d)\n", hw->type, VT_S, VT_S2, VT_C, VT_T);
+	WARN(MSG_NET, "tuning not implemented for HW-type:%d (S:%d, S2:%d C:%d T:%d)\n", hw->type, VT_S, VT_S2, VT_C, VT_T);
     }
   #endif
-  if( ret != 0 ) WARN("FE_SET_FRONTEND failed %s - %m\n", msg);
+  if( ret != 0 ) WARN(MSG_NET, "FE_SET_FRONTEND failed %s - %m\n", msg);
   return ret;
 }
 
 int hw_get_property(vtuner_hw_t* hw, struct dtv_property* prop) {
-  WARN("FE_GET_PROPERTY: not implemented %d\n", prop->cmd);
+  WARN(MSG_NET, "FE_GET_PROPERTY: not implemented %d\n", prop->cmd);
   return 0;
 }
 
@@ -239,7 +239,7 @@ int hw_set_property(vtuner_hw_t* hw, struct dtv_property* prop) {
   int ret=0;
 #if DVB_API_VERSION < 5
   ret = -1;
-  WARN("FE_SET_PROPERTY is not available\n");
+  WARN(MSG_NET, "FE_SET_PROPERTY is not available\n");
 #else
   DEBUGHW("FE_SET_PROPERTY %d\n", prop->cmd);
   switch( prop->cmd ) {
@@ -258,7 +258,7 @@ int hw_set_property(vtuner_hw_t* hw, struct dtv_property* prop) {
       cmdseq.props = hw->props;
       DEBUGHW("FE_SET_PROPERTY: DTV_TUNE\n");
       ret=ioctl(hw->frontend_fd, FE_SET_PROPERTY, &cmdseq);
-      if( ret != 0 ) WARN("FE_SET_PROPERTY failed - %m\n");
+      if( ret != 0 ) WARN(MSG_NET, "FE_SET_PROPERTY failed - %m\n");
     } break;
     case DTV_FREQUENCY:
     case DTV_MODULATION:
@@ -281,11 +281,11 @@ int hw_set_property(vtuner_hw_t* hw, struct dtv_property* prop) {
         DEBUGHW("FE_SET_PROPERTY: set %d to %d, %d properties collected\n", hw->props[hw->num_props].cmd, hw->props[hw->num_props].u.data, hw->num_props+1);
         ++hw->num_props;
       } else {
-        WARN("FE_SET_PROPERTY properties limit (%d) exceeded.\n", DTV_IOCTL_MAX_MSGS);
+        WARN(MSG_NET, "FE_SET_PROPERTY properties limit (%d) exceeded.\n", DTV_IOCTL_MAX_MSGS);
         ret = -1;
       } break;
     default: 
-      WARN("FE_SET_PROPERTY unknown property %d\n", prop->cmd);
+      WARN(MSG_NET, "FE_SET_PROPERTY unknown property %d\n", prop->cmd);
       ret = -1;
   }
 #endif
@@ -295,14 +295,14 @@ int hw_set_property(vtuner_hw_t* hw, struct dtv_property* prop) {
 int hw_read_status(vtuner_hw_t* hw, __u32* status) {
   int ret;
   ret = ioctl(hw->frontend_fd, FE_READ_STATUS, status);
-  if( ret != 0 ) WARN("FE_READ_STATUS failed\n");
+  if( ret != 0 ) WARN(MSG_NET, "FE_READ_STATUS failed\n");
   return ret;
 }
 
 int hw_set_tone(vtuner_hw_t* hw, __u8 tone) {
   int ret=0;
   ret = ioctl(hw->frontend_fd, FE_SET_TONE, tone);
-  if( ret != 0 ) WARN("FE_SET_TONE failed - %m\n");
+  if( ret != 0 ) WARN(MSG_NET, "FE_SET_TONE failed - %m\n");
   return ret;
 }
 
@@ -310,7 +310,7 @@ int hw_set_voltage(vtuner_hw_t* hw, __u8 voltage) {
   int ret=0;
   if( hw->type == VT_S || hw->type == VT_S2 ) { // Dream supports this on DVB-T, but not plain linux
     ret = ioctl(hw->frontend_fd, FE_SET_VOLTAGE, voltage);
-    if( ret != 0 ) WARN("FE_SET_VOLTAGE failed - %m\n");
+    if( ret != 0 ) WARN(MSG_NET, "FE_SET_VOLTAGE failed - %m\n");
   }
   return ret;
 }
@@ -318,14 +318,14 @@ int hw_set_voltage(vtuner_hw_t* hw, __u8 voltage) {
 int hw_send_diseq_msg(vtuner_hw_t* hw, diseqc_master_cmd_t* cmd) {
   int ret=0;
   ret=ioctl(hw->frontend_fd, FE_DISEQC_SEND_MASTER_CMD, cmd);
-  if( ret != 0 ) WARN("FE_DISEQC_SEND_MASTER_CMD failed - %m\n");
+  if( ret != 0 ) WARN(MSG_NET, "FE_DISEQC_SEND_MASTER_CMD failed - %m\n");
   return ret;
 }
 
 int hw_send_diseq_burst(vtuner_hw_t* hw, __u8 burst) {
   int ret=0;
   ret=ioctl(hw->frontend_fd, FE_DISEQC_SEND_BURST, burst);
-  if( ret != 0 ) WARN("FE_DISEQC_SEND_BURST  - %m\n");
+  if( ret != 0 ) WARN(MSG_NET, "FE_DISEQC_SEND_BURST  - %m\n");
   return ret;
 }
 
@@ -361,7 +361,7 @@ int hw_pidlist(vtuner_hw_t* hw, __u16* pidlist) {
           if(hw->pids[j] == 0xffff) 
             break;
         if(j==MAX_DEMUX) {
-          WARN("no free demux found. skip pid %d\n",pidlist[i]);
+          WARN(MSG_NET, "no free demux found. skip pid %d\n",pidlist[i]);
         } else {
           flt.pid = hw->pids[j] = pidlist[i];
           flt.input = DMX_IN_FRONTEND;

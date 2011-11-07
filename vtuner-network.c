@@ -197,7 +197,7 @@ void hton_vtuner_net_message(vtuner_net_message_t* netmsg, vtuner_type_t type) {
           HTONLc( netmsg->u.vtuner.body.fe_params, u.ofdm.hierarchy_information);
 	  break;
 	default:
-          WARN("unkown frontend type %d (known types are %d,%d,%d,%d)\n",type,VT_S,VT_C,VT_T,VT_S2);
+          WARN(MSG_NET, "unkown frontend type %d (known types are %d,%d,%d,%d)\n",type,VT_S,VT_C,VT_T,VT_S2);
       };
       break;
     case MSG_READ_STATUS:
@@ -248,7 +248,7 @@ void hton_vtuner_net_message(vtuner_net_message_t* netmsg, vtuner_type_t type) {
       break;    
     default:
       if(netmsg->msg_type < 1 || (netmsg->msg_type > MSG_GET_PROPERTY && netmsg->msg_type < MSG_NULL ) || netmsg->msg_type > MSG_UPDATE)
-        WARN("unkown message type %d\n",netmsg->msg_type);
+        WARN(MSG_NET, "unkown message type %d\n",netmsg->msg_type);
     }
   }
 
@@ -303,7 +303,7 @@ void ntoh_vtuner_net_message(vtuner_net_message_t* netmsg, vtuner_type_t type) {
           NTOHLc( netmsg->u.vtuner.body.fe_params, u.ofdm.hierarchy_information);
           break;
         default:
-          WARN("unkown frontend type %d (known types are %d,%d,%d,%d)\n",type,VT_S,VT_C,VT_T,VT_S2);
+          WARN(MSG_NET, "unkown frontend type %d (known types are %d,%d,%d,%d)\n",type,VT_S,VT_C,VT_T,VT_S2);
       }
       DEBUGNETC(" %d %d %d %d", netmsg->u.vtuner.body.fe_params.frequency, netmsg->u.vtuner.body.fe_params.inversion, netmsg->u.vtuner.body.fe_params.u.qpsk.symbol_rate, netmsg->u.vtuner.body.fe_params.u.qpsk.fec_inner);
       break;
@@ -354,7 +354,7 @@ void ntoh_vtuner_net_message(vtuner_net_message_t* netmsg, vtuner_type_t type) {
       break;
     default:
       if(netmsg->msg_type < 1 || (netmsg->msg_type > MSG_GET_PROPERTY && netmsg->msg_type < MSG_NULL ) || netmsg->msg_type > MSG_UPDATE)
-        WARN("unknown message type %d\n",netmsg->msg_type);
+        WARN(MSG_NET, "unknown message type %d\n",netmsg->msg_type);
     }
   }
   DEBUGNETC("\n");
