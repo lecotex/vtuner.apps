@@ -15,6 +15,7 @@
 #include <unistd.h>
 #include <linux/dvb/version.h>
 #include <time.h>
+#include <sys/param.h>
 
 #include "vtuner-network.h"
 
@@ -358,6 +359,9 @@ int main(int argc, char **argv) {
   char *ctrl_devname = VTUNER_CTRL_DEVNAME;
   int c;
   char *act;
+  FILE *pidfile;
+  char pidname[MAXPATHLEN], *piddir = "/var/run";
+  int ctrl_idx = 0;
 
   mode = 0;
   modes = 0;
@@ -391,6 +395,7 @@ int main(int argc, char **argv) {
         ERROR(MSG_MAIN, "can't open control device: %s\n", optarg);
         exit(1);
       }
+      ctrl_idx = ctrl_devname[strlen(ctrl_devname) - 1] - '0'; //FIXME: it works "only" for first ten devices
       break;
 
     case 'f': // frontends type (eg: s2,c,t)
@@ -498,6 +503,26 @@ int main(int argc, char **argv) {
   if(modes == 0) {
     ERROR(MSG_MAIN, "Missing required -f parameter\n");
     exit(1);
+  }
+
+  // create pidfile
+  sprintf(pidname, "%s/vtunerc%d.pid", piddir, ctrl_idx);
+  if ((pidfile = fopen(pidname, "r")) != NULL) {
+    // check for pid alive
+    int pid;
+
+    if(fscanf(pidfile, "%d", &pid) == 1 && kill(pid, 0) == 0) {
+      ERROR(MSG_MAIN, "Process with PID %d still accupies control device %s\n", pid, ctrl_devname);
+      exit(1);
+    }
+    fclose(pidfile);
+  }
+  if ((pidfile = fopen(pidname, "w")) == NULL) {
+      WARN(MSG_MAIN, "Can't create pid file %s - %m\n", ctrl_devname);
+  } else {
+    fprintf(pidfile, "%d\n", getpid());
+    fclose(pidfile);
+    INFO(MSG_MAIN, "Created pidfile %s\n", pidname);
   }
 
   vtuner_control = open(ctrl_devname, O_RDWR);
