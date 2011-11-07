@@ -48,8 +48,8 @@ typedef enum vtuner_type {
 #define MSG_DISCOVER		 1025
 #define MSG_UPDATE       	 1026
 
-#define DEBUGNET(msg, ...)  write_message(0x0100, "[%d %s:%u] debug: " msg, getpid(), __FILE__, __LINE__, ## __VA_ARGS__)
-#define DEBUGNETC(msg, ...) write_message(0x0100, msg, ## __VA_ARGS__)
+#define DEBUGNET(msg, ...) DEBUG(MSG_NET, msg, ## __VA_ARGS__)
+#define DEBUGNETC(msg, ...) DEBUG(MSG_NET, msg, ## __VA_ARGS__)
 
 typedef struct diseqc_master_cmd {
 	__u8 msg [6];

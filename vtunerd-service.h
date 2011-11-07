@@ -17,9 +17,7 @@
   #endif
 #endif
 
-#define DEBUGSRV(msg, ...)  write_message(0x0040, "[%d %s:%u] debug: " msg, getpid(), __FILE__, __LINE__, ## __VA_ARGS__)
-#define DEBUGSRVI(msg, ...) init_message((0x0040, "[%d %s:%u] debug: " msg, getpid(), __FILE__, __LINE__, ## __VA_ARGS__)
-#define DEBUGSRVC(msg, ...) append_message(0x0040, msg, ## __VA_ARGS__)
+#define DEBUGSRV(msg, ...) DEBUG(MSG_SRV, msg, ## __VA_ARGS__)
 
 typedef enum vtuner_session_status {
 	SST_IDLE,

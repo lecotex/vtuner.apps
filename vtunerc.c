@@ -25,7 +25,8 @@
 #define TS_PKT_LEN 188
 #define TS_HDR_SYNC 0x47
 
-int dbg_level =  0x0003;
+int dbg_level =  MSG_INFO;
+unsigned int dbg_mask =  MSG_ALL;
 int use_syslog = 1;
 int opt_delay = 50;
 // 2010-01-30
@@ -34,9 +35,6 @@ int opt_delay = 50;
 // need to have a buffer greater than this to detect if we're
 // receiving to slow
 int opt_pktrmax=696;
-
-#define DEBUGMAIN(msg, ...)  write_message(0x0010, "[%d %s:%u] debug: " msg, getpid(), __FILE__, __LINE__, ## __VA_ARGS__)
-#define DEBUGMAINC(msg, ...) write_message(0x0010, msg, ## __VA_ARGS__)
 
 typedef enum tsdata_worker_status {
   DST_UNKNOWN,
@@ -84,7 +82,7 @@ void *tsdata_worker(void *d) {
       int r = read(data->in, readptr, bytes2read);
 
       if(r <= 0) {
-        ERROR("TS data socket closed.\n");
+        ERROR(MSG_MAIN, "TS data socket closed.\n");
         data->status = DST_EXITING;
 	continue;
       }
@@ -94,7 +92,7 @@ void *tsdata_worker(void *d) {
       readptr += r;
 
       if (bytesread < TS_PKT_LEN * 3) {
-        INFO("less than 3 TS packets read (actually:%d), read more.\n", r);
+        DEBUG(MSG_MAIN, "less than 3 TS packets read (actually:%d), read more.\n", r);
         continue; 
       }
 
@@ -113,7 +111,7 @@ void *tsdata_worker(void *d) {
       }
 
       if (!offsetfound) {
-        ERROR("start of TS packet not found, throwing buffer away.\n");
+        ERROR(MSG_MAIN, "start of TS packet not found, throwing buffer away.\n");
         readptr = buf;
         bytesread = 0;
         bytes2read = sizeof(buf);
@@ -122,7 +120,7 @@ void *tsdata_worker(void *d) {
       } 
 
       if (offset)
-        DEBUGMAIN("offset to TS packet %d bytes.\n", offset);
+        WARN(MSG_MAIN, "offset to TS packet %d bytes.\n", offset);
       writeptr = buf + offset;
       tail = (bytesread - offset) % TS_PKT_LEN;
       bytes2write = bytesread - offset - tail;
@@ -137,7 +135,7 @@ void *tsdata_worker(void *d) {
       if (opt_delay) {
         if( bytesread >= rmax && delay >= 70) {
           delay = 10;
-          DEBUGMAIN("decreased delay: bytesread:%d rmax:%d, delay:%d\n", bytesread, rmax, delay);
+          DEBUG(MSG_MAIN, "decreased delay: bytesread:%d rmax:%d, delay:%d\n", bytesread, rmax, delay);
         } else if( bytesread > 0.90*rmax && delay > 4) {
           if( bytesread > 2*rmax )
             delay = 3;
@@ -149,25 +147,25 @@ void *tsdata_worker(void *d) {
             delay -= 8;
           else
 	    delay -= 16;
-          DEBUGMAIN("decreased delay: bytesread:%d rmax:%d, delay:%d\n", bytesread, rmax, delay);
+          DEBUG(MSG_MAIN, "decreased delay: bytesread:%d rmax:%d, delay:%d\n", bytesread, rmax, delay);
         } else if( bytesread < 0.50*rmax && delay < 70) {
           if(delay < 20)
             delay += 2;
           else
             delay += 4;
-          DEBUGMAIN("increased delay: bytesread:%d rmax:%d, delay:%d\n", bytesread, rmax, delay);
+          DEBUG(MSG_MAIN, "increased delay: bytesread:%d rmax:%d, delay:%d\n", bytesread, rmax, delay);
         } 
       }
 
       if (bytesread <= 0) {
-        ERROR("tcp read - %m\n");
+        ERROR(MSG_MAIN, "tcp read - %m\n");
         data->status = DST_FAILED;
       } else {
         if (write(data->out, writeptr, bytes2write) != bytes2write) {
-          ERROR("write failed - %m\n");
+          ERROR(MSG_MAIN, "write failed - %m\n");
           data->status = DST_FAILED;
         } else {
-          // DEBUGMAIN("receive buffer stats. size:%d, rmax:%d, delay:%d\n", bytes2write, rmax, delay); 
+          // DEBUG(MSG_MAIN, "receive buffer stats. size:%d, rmax:%d, delay:%d\n", bytes2write, rmax, delay); 
           // suggested from H2Deetoo to prevent pixelation with
           // crypted HD DVB-C channels
           // 2010-01-30
@@ -182,12 +180,13 @@ void *tsdata_worker(void *d) {
         bytes2read = sizeof(buf) - tail ;
       }
     } else {
+      if (delay > 10)
+        DEBUG(MSG_MAIN, "decreased delay: bytesread:%d rmax:%d, delay:%d\n", bytesread, rmax, delay);
       delay = 10; 
-      DEBUGMAIN("decreased delay: bytesread:%d rmax:%d, delay:%d\n", bytesread, rmax, delay);
     }
   }
 
-  ERROR("TS data copy thread terminated.\n");
+  ERROR(MSG_MAIN, "TS data copy thread terminated.\n");
   data->status = DST_EXITING;
 }
 
@@ -211,7 +210,7 @@ typedef struct discover_worker_data {
 int *discover_worker(void *d) {
   discover_worker_data_t* data = (discover_worker_data_t*)d;
 
-  INFO("starting discover thread\n");
+  INFO(MSG_MAIN, "starting discover thread\n");
   data->status = DWS_RUNNING;
   int discover_fd = socket(PF_INET, SOCK_DGRAM, IPPROTO_UDP);
   int broadcast = -1;
@@ -225,7 +224,7 @@ int *discover_worker(void *d) {
   discover_addr.sin_port = 0;
 
   if (bind(discover_fd, (struct sockaddr *) &discover_addr, sizeof(discover_addr)) < 0) {
-    ERROR("can't bind discover socket - %m\n");
+    ERROR(MSG_MAIN, "can't bind discover socket - %m\n");
     close(discover_fd);
     data->status = DWS_FAILED;
     goto discover_worker_end;
@@ -236,7 +235,7 @@ int *discover_worker(void *d) {
   if(data->direct_ip) {
     struct in_addr dirip;
     if(!inet_aton(data->direct_ip, &msg_addr.sin_addr)) {
-      ERROR("can't parse direct ip: %s\n", data->direct_ip);
+      ERROR(MSG_MAIN, "can't parse direct ip: %s\n", data->direct_ip);
       close(discover_fd);
       data->status = DWS_FAILED;
       goto discover_worker_end;
@@ -255,7 +254,7 @@ int *discover_worker(void *d) {
     data->msg.u.discover.port = 0;
     hton_vtuner_net_message(&data->msg, 0); // we don't care tuner type for conversion of discover
 
-    INFO("Sending %sdiscover message for device types %x\n", data->direct_ip ? "direct " : "", data->types);
+    INFO(MSG_MAIN, "Sending %sdiscover message for device types %x\n", data->direct_ip ? "direct " : "", data->types);
     sendto(discover_fd, &data->msg, sizeof(data->msg), 0, (struct sockaddr *) &msg_addr, sizeof(msg_addr));
     struct pollfd pfd[] = { { discover_fd, POLLIN, 0 } }; 
     while( data->msg.u.discover.port == 0 &&
@@ -269,7 +268,7 @@ int *discover_worker(void *d) {
   data->server_addr.sin_port = data->msg.u.discover.port; // no need for ntoh here
   ntoh_vtuner_net_message(&data->msg, 0);
   
-  INFO("Received discover message from %s proto%d control %d data %d\n", inet_ntoa(data->server_addr.sin_addr), data->msg.ver, data->msg.u.discover.port, data->msg.u.discover.tsdata_port);
+  INFO(MSG_MAIN, "Received discover message from %s proto%d control %d data %d\n", inet_ntoa(data->server_addr.sin_addr), data->msg.ver, data->msg.u.discover.port, data->msg.u.discover.tsdata_port);
   data->status = DWS_DISCOVERD;
 
 discover_worker_end:
@@ -364,22 +363,32 @@ int main(int argc, char **argv) {
   modes = 0;
   direct_ip[0] = '\0';
 
-  write_message(-1, "vtuner client (vtunerc), part of vtuner project\n"
+  write_message(MSG_MAIN, MSG_ERROR, "vtuner client (vtunerc), part of vtuner project\n"
 			"Visit http://code.google.com/p/vtuner/ for more information\n"
 			"Copyright (C) 2009-11 Roland Mieslinger\n"
 			"This is free software; see the source for copying conditions.\n"
 			"There is NO warranty; not even for MERCHANTABILITY or FITNESS\n"
 			"FOR A PARTICULAR PURPOSE.\n");
 
-  write_message(-1, "Revision:%s%s DVB:%d.%d allow:%d.x NetProto:%d MsgSize:%d, Debug:0x%x\n", BUILDVER, MODFLAG, DVB_API_VERSION, DVB_API_VERSION_MINOR, HAVE_DVB_API_VERSION, VTUNER_PROTO_MAX, sizeof(vtuner_net_message_t), dbg_level);
+  // read only verbosity, to show value
+  while((c = getopt(argc, argv, "d:f:n:r:x:hv:")) != -1)
+    switch(c) {
+    case 'v': // verbosity
+      dbg_level = atoi(optarg);
+      break;
+    }
 
+  write_message(MSG_MAIN, MSG_ERROR, "Revision:%s%s DVB:%d.%d allow:%d.x NetProto:%d MsgSize:%d, Debug:%d\n", BUILDVER, MODFLAG, DVB_API_VERSION, DVB_API_VERSION_MINOR, HAVE_DVB_API_VERSION, VTUNER_PROTO_MAX, sizeof(vtuner_net_message_t), dbg_level);
+
+  // do real option parsing now
+  optind = 1; // reset getopt()
   while((c = getopt(argc, argv, "d:f:n:r:x:hv:")) != -1) {
     switch(c) {
     case 'd': // device name
       if(!stat(optarg, &st) && S_ISCHR(st.st_mode))
         ctrl_devname = optarg;
       else {
-        ERROR("can't open control device: %s\n", optarg);
+        ERROR(MSG_MAIN, "can't open control device: %s\n", optarg);
         exit(1);
       }
       break;
@@ -420,7 +429,7 @@ int main(int argc, char **argv) {
           vtuner_info[modes] = &fe_info_dvbt;
           strncpy(ctypes[modes],"DVB-T",sizeof(ctypes[0]));
         } else {
-          ERROR("unknown tuner mode specified: %s allowed values are: -s -S -s2 -S2 -c -t (with optional group mask)\n", optarg);
+          ERROR(MSG_MAIN, "unknown tuner mode specified: %s allowed values are: -s -S -s2 -S2 -c -t (with optional group mask)\n", optarg);
           exit(1);
         }
 
@@ -433,11 +442,12 @@ int main(int argc, char **argv) {
 	act = nxt;
 	if(nxt)
 	  act++;
-        DEBUGMAIN("added frontend mode %s as mode %d, searching for tuner types %x\n", ctypes[modes], modes, types[modes]);
+        INFO(MSG_MAIN, "added frontend mode %s as mode %d, searching for tuner types %x\n", ctypes[modes], modes, types[modes]);
         modes++;
 #ifndef HAVE_DREAMBOX_HARDWARE
-	if(modes) {
-          DEBUGMAIN("frontend switch: only one mode is allowed. First is used\n");
+	if(modes > 0) {
+	  if(modes > 1)
+            WARN(MSG_MAIN, "frontend switch: only one mode is allowed. First is used\n");
 	  break; // only one mode is allowed for opensourced vtunerc.ko
 	}
 #endif
@@ -448,10 +458,10 @@ int main(int argc, char **argv) {
       if((c = sscanf(optarg, "%[^:]:%d", direct_ip, &discover_port)) < 1)
       //if(strchr(optarg, ':'))
       {
-         ERROR("Network parameter requires at least IP address (rv=%d)\n", c);
+         ERROR(MSG_MAIN, "Network parameter requires at least IP address (rv=%d)\n", c);
          exit(1);
       }
-      DEBUGMAIN("direct connection: ip='%s' port=%d\n", direct_ip, discover_port);
+      INFO(MSG_MAIN, "direct connection: ip='%s' port=%d\n", direct_ip, discover_port);
       break;
 
     case 'x': // calc delay
@@ -467,7 +477,7 @@ int main(int argc, char **argv) {
       break;
 
     case 'h': // help
-      write_message(-1, "\nCommand line options:\n"
+      write_message(MSG_MAIN, MSG_ERROR, "\nCommand line options:\n"
                       "  Required:\n"
 #ifdef HAVE_DREAMBOX_HARDWARE
                       "    -f dvb_type[:tuner_mask][,<dvb_type_2>[:tuner_mask_2][,dvb_type_3[:tuner_mask_3]]] : tuner type to ask (dvb_type=S,s,S2,s2,T,C) and optional tuner group mask (every bit represents one tuner group)\n"
@@ -479,14 +489,14 @@ int main(int argc, char **argv) {
                       "    -n direct_ip[:port]      : do direct request for tuner (multicast by default)\n"
                       "    -r rbuf_size             : receive buffer size\n"
                       "    -x max_delay             : max delay or 0\n"
-                      "    -v level                 : verbosity level\n");
+                      "    -v level                 : verbosity level (1:err,2:warn,3:info,4:debug)\n");
       exit(1);
       break;
     }
   }
 
   if(modes == 0) {
-    ERROR("Missing required -f parameter\n");
+    ERROR(MSG_MAIN, "Missing required -f parameter\n");
     exit(1);
   }
 
@@ -497,13 +507,13 @@ int main(int argc, char **argv) {
   }
 
   if (ioctl(vtuner_control, VTUNER_SET_NAME, "vTuner"))  {
-    ERROR("VTUNER_SET_NAME failed - %m\n");
+    ERROR(MSG_MAIN, "VTUNER_SET_NAME failed - %m\n");
     exit(1);
   }
 
 #ifdef HAVE_DREAMBOX_HARDWARE
   if (ioctl(vtuner_control, VTUNER_SET_HAS_OUTPUTS, "no")) {
-    ERROR("VTUNER_SET_HAS_OUTPUTS failed - %m\n");
+    ERROR(MSG_MAIN, "VTUNER_SET_HAS_OUTPUTS failed - %m\n");
     exit(1);
   }
 
@@ -516,7 +526,7 @@ int main(int argc, char **argv) {
     len = read(f, &model, sizeof(model)-1); 
     close(f);
     model[len] = 0;
-    INFO("Box is a %s", model);
+    INFO(MSG_MAIN, "Box is a %s", model);
   }
 #endif
 
@@ -540,38 +550,38 @@ int main(int argc, char **argv) {
     vtuner_net_message_t msg;
 
     if( vts == VTS_DISCONNECTED ) {
-      DEBUGMAIN("no server connected. discover thread is %d (DWS_IDLE:%d, DWS_RUNNING:%d)\n", dsd.status, DWS_IDLE, DWS_RUNNING);
+      INFO(MSG_MAIN, "no server connected. discover thread is %d (DWS_IDLE:%d, DWS_RUNNING:%d)\n", dsd.status, DWS_IDLE, DWS_RUNNING);
       if( dsd.status == DWS_IDLE ) {
-        DEBUGMAIN("changing frontend mode to %s\n", ctypes[mode]);
+        INFO(MSG_MAIN, "changing frontend mode to %s\n", ctypes[mode]);
 #ifndef HAVE_DREAMBOX_HARDWARE
         if (ioctl(vtuner_control, VTUNER_SET_TYPE, ctypes[0])) {
-          ERROR("VTUNER_SET_TYPE failed - %m\n");
+          ERROR(MSG_MAIN, "VTUNER_SET_TYPE failed - %m\n");
           exit(1);
         }
 #else
 	if( modes == 1 ) {
           if (ioctl(vtuner_control, VTUNER_SET_TYPE, ctypes[0])) {
-            ERROR("VTUNER_SET_TYPE failed - %m\n");
+            ERROR(MSG_MAIN, "VTUNER_SET_TYPE failed - %m\n");
             exit(1);
           }
 	} else {
           if( ioctl(vtuner_control, VTUNER_SET_NUM_MODES, modes) ) {
-            ERROR("VTUNER_SET_NUM_MODES( %d ) failed - %m\n", modes);
+            ERROR(MSG_MAIN, "VTUNER_SET_NUM_MODES( %d ) failed - %m\n", modes);
             exit(1);
           }
           if( ioctl(vtuner_control, VTUNER_SET_MODES, ctypes) ) {
-            ERROR(" VTUNER_SET_MODES failed( %s, %s, %s ) - %m\n", ctypes[0], ctypes[1], ctypes[2]);
+            ERROR(MSG_MAIN, " VTUNER_SET_MODES failed( %s, %s, %s ) - %m\n", ctypes[0], ctypes[1], ctypes[2]);
             exit(1);
           }
 	}
 #endif
 
         if (ioctl(vtuner_control, VTUNER_SET_FE_INFO, vtuner_info[mode])) {
-          ERROR("VTUNER_SET_FE_INFO failed - %m\n");
+          ERROR(MSG_MAIN, "VTUNER_SET_FE_INFO failed - %m\n");
           exit(1);
         }
 
-        DEBUGMAIN("Start discover worker for device type %x groups %x\n", types[mode], groups);
+        INFO(MSG_MAIN, "Start discover worker for device type %x groups %x\n", types[mode], groups);
         dsd.types = types[mode];
         dsd.status = DWS_RUNNING;
         pthread_create( &dst, NULL, discover_worker, &dsd);
@@ -587,13 +597,13 @@ int main(int argc, char **argv) {
 
         vfd = socket(PF_INET, SOCK_STREAM, 0);
         if(vfd<0) {
-          ERROR("Can't create server message socket - %m\n");
+          ERROR(MSG_MAIN, "Can't create server message socket - %m\n");
           exit(1);
         }
         
-        INFO("connect control socket to %s:%d\n", inet_ntoa(dsd.server_addr.sin_addr), ntohs(dsd.server_addr.sin_port));
+        INFO(MSG_MAIN, "connect control socket to %s:%d\n", inet_ntoa(dsd.server_addr.sin_addr), ntohs(dsd.server_addr.sin_port));
         if(connect(vfd, (struct sockaddr *)&dsd.server_addr, sizeof(dsd.server_addr)) < 0) {
-          ERROR("Can't connect to server control socket - %m\n");
+          ERROR(MSG_MAIN, "Can't connect to server control socket - %m\n");
           vts = VTS_DISCONNECTED;
           close(vfd);
 
@@ -602,13 +612,13 @@ int main(int argc, char **argv) {
           dsd.server_addr.sin_port = htons(dsd.msg.u.discover.tsdata_port);
           dwd.in = socket(PF_INET, SOCK_STREAM, 0);
           if( connect(dwd.in, (struct sockaddr *)&dsd.server_addr, sizeof(dsd.server_addr)) < 0) {
-            ERROR("Can't connect to server data socket -%m\n");
+            ERROR(MSG_MAIN, "Can't connect to server data socket -%m\n");
             close(vfd);
             close(dwd.in);
             vts = VTS_DISCONNECTED;
           } else {
 
-          INFO("connected data socket to %s:%d\n", inet_ntoa(dsd.server_addr.sin_addr), ntohs(dsd.server_addr.sin_port));
+          INFO(MSG_MAIN, "connected data socket to %s:%d\n", inet_ntoa(dsd.server_addr.sin_addr), ntohs(dsd.server_addr.sin_port));
             dwd.out = vtuner_control;
             dwd.status = DST_UNKNOWN; 
             pthread_create( &dwt, NULL, tsdata_worker, &dwd ); 
@@ -626,10 +636,10 @@ int main(int argc, char **argv) {
                 memcpy(&msg, &record[i], sizeof(msg));
                 hton_vtuner_net_message( &msg, types[mode] );
                 if(write(vfd, &msg, sizeof(msg))>0) {
-                  INFO("replay message %d\n", i);
+                  DEBUG(MSG_MAIN, "replay message %d\n", i);
                   if(record[i].msg_type != MSG_PIDLIST) {
                     if(read(vfd, &msg, sizeof(msg))>0) {
-                      INFO("got response for message %d\n", i);
+                      DEBUG(MSG_MAIN, "got response for message %d\n", i);
                     }
                   }
                 }
@@ -648,9 +658,9 @@ int main(int argc, char **argv) {
     poll(pfd, nrp, 100); // don't poll forever cause of status changes can happen
 
     if(pfd[0].revents & POLLPRI) {
-      INFO("vtuner message!\n");
+      DEBUG(MSG_MAIN, "vtuner message!\n");
       if (ioctl(vtuner_control, VTUNER_GET_MESSAGE, &msg.u.vtuner)) {
-        ERROR("VTUNER_GET_MESSAGE- %m\n");
+        ERROR(MSG_MAIN, "VTUNER_GET_MESSAGE- %m\n");
         exit(1);
       }
       // we need to save to msg_type here as hton works in place
@@ -665,7 +675,7 @@ int main(int argc, char **argv) {
         mode = msg.u.vtuner.body.type_changed;
         msg.u.vtuner.type = 0;
         if (ioctl(vtuner_control, VTUNER_SET_RESPONSE, &msg.u.vtuner)) {
-          ERROR("VTUNER_SET_RESPONSE - %m\n");
+          ERROR(MSG_MAIN, "VTUNER_SET_RESPONSE - %m\n");
           exit(1);
         }
         // empty all recorded reconnecion information
@@ -677,13 +687,13 @@ int main(int argc, char **argv) {
 
         // if disvoery is ongoing cancle it
         if(dsd.status == DWS_RUNNING) {
-          DEBUGMAIN("discover thread is running, try to cancle it.\n");
+          WARN(MSG_MAIN, "discover thread is running, try to cancle it.\n");
           pthread_cancel(dst);
           pthread_join(dst, NULL);	  
-          DEBUGMAIN("discover thread terminated.\n");
+          WARN(MSG_MAIN, "discover thread terminated.\n");
           dsd.status = DWS_IDLE;
         }
-        INFO("msg: %d completed\n", msg_type);
+        DEBUG(MSG_MAIN, "msg: %d completed\n", msg_type);
 
       } else {
         // fill the record array in the correct order
@@ -725,7 +735,7 @@ int main(int argc, char **argv) {
             case MSG_READ_SNR:             msg.u.vtuner.body.snr    = values.snr; break; 
             case MSG_READ_UCBLOCKS:        msg.u.vtuner.body.ucb    = values.ucb; break;
           }
-          DEBUGMAIN("cached values are up to date\n");
+          DEBUG(MSG_MAIN, "cached values are up to date\n");
         }
 
         if (msg_type != MSG_PIDLIST) {
@@ -735,7 +745,7 @@ int main(int argc, char **argv) {
               ntoh_vtuner_net_message( &msg, types[mode] );
             }
           } else {
-            INFO("fake server answer\n");
+            DEBUG(MSG_MAIN, "fake server answer\n");
             switch(msg.u.vtuner.type) {
               case MSG_READ_STATUS:  
                 msg.u.vtuner.body.status = 0; // tuning failed
@@ -744,18 +754,18 @@ int main(int argc, char **argv) {
             msg.u.vtuner.type = 0; // report success
           }
           if (ioctl(vtuner_control, VTUNER_SET_RESPONSE, &msg.u.vtuner)) {
-            ERROR("VTUNER_SET_RESPONSE - %m\n");
+            ERROR(MSG_MAIN, "VTUNER_SET_RESPONSE - %m\n");
             exit(1);
           }
         }
-        INFO("msg: %d completed\n", msg_type);
+        DEBUG(MSG_MAIN, "msg: %d completed\n", msg_type);
       }
     }
          
     if( pfd[1].revents & POLLIN ) {
       int rlen = read(vfd, &msg, sizeof(msg));
       if(rlen == 0) {
-        ERROR("Server disconncted\n");
+        ERROR(MSG_MAIN, "Server disconncted\n");
         vts = VTS_DISCONNECTED;        
         close(vfd);
       } 

@@ -30,7 +30,7 @@ int init_vtuner_service() {
 	discover_fd = socket(PF_INET, SOCK_DGRAM, IPPROTO_UDP);
 
 	if( bind(discover_fd, (struct sockaddr *) &discover_so, sizeof(discover_so)) < 0) {
-		ERROR("failed to bind autodiscover socket - %m\n");
+		ERROR(MSG_SRV, "failed to bind autodiscover socket - %m\n");
 		return 0;
 	}
 	DEBUGSRV("autodiscover socket bound\n");
@@ -44,7 +44,7 @@ int prepare_anon_stream_socket(struct sockaddr_in* addr, socklen_t* addrlen) {
 
   ret = listen_fd = socket(AF_INET, SOCK_STREAM, 0);
   if(ret < 0) {
-    ERROR("Failed to create socket - %m\n");
+    ERROR(MSG_SRV, "Failed to create socket - %m\n");
     goto error;
   }
 
@@ -54,18 +54,18 @@ int prepare_anon_stream_socket(struct sockaddr_in* addr, socklen_t* addrlen) {
   addr->sin_port = 0;
 
   if( ret = bind(listen_fd, (struct sockaddr*)addr, *addrlen) < 0) {
-    ERROR("failed to bind socket - %m\n");
+    ERROR(MSG_SRV, "failed to bind socket - %m\n");
     goto cleanup_listen;
   }
 
   getsockname(listen_fd, (struct sockaddr*)addr, addrlen);
 
   if( ret = listen(listen_fd, 1) < 0 ) {
-    ERROR("failed to listen on socket - %m\n");
+    ERROR(MSG_SRV, "failed to listen on socket - %m\n");
     goto cleanup_listen;
   }
   
-  INFO("anon stream socket prepared %d\n", listen_fd);
+  INFO(MSG_SRV, "anon stream socket prepared %d\n", listen_fd);
   return(listen_fd);
 
 cleanup_listen:
@@ -78,34 +78,34 @@ error:
 void set_socket_options(int fd) {
     int opt=1;
     if( setsockopt(fd, IPPROTO_TCP, TCP_NODELAY, &opt, sizeof(opt)) < 0)
-      WARN("setsockopt TCP_NODELAY %d failed -%m\n",opt);
+      WARN(MSG_SRV, "setsockopt TCP_NODELAY %d failed -%m\n",opt);
     else
       DEBUGSRV("setsockopt TCP_NODELAY %d successful\n",opt);
 
     opt=1;
     if( setsockopt(fd, SOL_SOCKET, SO_KEEPALIVE, &opt, sizeof(opt)) < 0)
-      WARN("setsockopt SO_KEEPALIVE %d failed -%m\n",opt);
+      WARN(MSG_SRV, "setsockopt SO_KEEPALIVE %d failed -%m\n",opt);
     else
       DEBUGSRV("setsockopt SO_KEEPALIVE %d successful\n",opt);
 
     // keepalive interval 15;
     opt=15;
     if( setsockopt(fd, IPPROTO_TCP, TCP_KEEPIDLE, &opt, sizeof(opt)) < 0)
-      WARN("setsockopt TCP_KEEPIDLE %d failed -%m\n",opt);
+      WARN(MSG_SRV, "setsockopt TCP_KEEPIDLE %d failed -%m\n",opt);
     else
       DEBUGSRV("setsockopt TCP_KEEPIDLE %d successful\n",opt);
 
     // retry twice
     opt=2;
     if(setsockopt(fd, IPPROTO_TCP, TCP_KEEPCNT, &opt, sizeof(opt))  < 0)
-      WARN("setsockopt TCP_KEEPCNT %d failed -%m\n",opt);
+      WARN(MSG_SRV, "setsockopt TCP_KEEPCNT %d failed -%m\n",opt);
     else
       DEBUGSRV("setsockopt TCP_KEEPCNT %d successful\n",opt);
 
     // allow 2 sec. to answer on keep alive
     opt=2;
     if(setsockopt(fd, IPPROTO_TCP, TCP_KEEPINTVL, &opt, sizeof(opt)) < 0)
-      WARN("setsockopt TCP_KEEPINTVL %d failed -%m\n",opt);
+      WARN(MSG_SRV, "setsockopt TCP_KEEPINTVL %d failed -%m\n",opt);
     else
       DEBUGSRV("setsockopt TCP_KEEPINTVL %d successful\n",opt);
 }
@@ -143,7 +143,7 @@ void *tsdata_worker(void *d) {
 
   out_fd = accept(data->listen_fd, (struct sockaddr *)&addr, &addrlen);
   if( out_fd < 0) {
-    ERROR("accept failed on data socket - %m\n");
+    ERROR(MSG_SRV, "accept failed on data socket - %m\n");
     data->status = DST_FAILED;
     goto error;
   }
@@ -161,11 +161,11 @@ void *tsdata_worker(void *d) {
 
   size_t window_size = sizeof(buffer);
   if(setsockopt(out_fd, SOL_SOCKET, SO_SNDBUF, (char *) &window_size, sizeof(window_size))) {
-    WARN("set window size failed - %m\n");
+    WARN(MSG_SRV, "set window size failed - %m\n");
   }
 
   if( fcntl(out_fd, F_SETFL, O_NONBLOCK) != 0) {
-    WARN("O_NONBLOCK failed for socket - %m\n");
+    WARN(MSG_SRV, "O_NONBLOCK failed for socket - %m\n");
   }
 
   long long now, last_written;
@@ -183,7 +183,7 @@ void *tsdata_worker(void *d) {
       // of RMAX
       rmax = (rmax>RMAX)?RMAX:rmax;
       if(rmax == 0) {
-        INFO("no space left in buffer to read data, data loss possible\n");
+        WARN(MSG_SRV, "no space left in buffer to read data, data loss possible\n");
       } else {
         int rlen = read(data->in, buffer + bufptr, rmax);
         if(rlen>0) bufptr += rlen;
@@ -210,7 +210,7 @@ void *tsdata_worker(void *d) {
       int wlen = write(out_fd,  buffer + bufptr_write, w);
 /*
       if(delta>100) {
-        INFO("data sent late: size:%d, written:%d, delay: %lld\n", \
+        INFO(MSG_SRV, "data sent late: size:%d, written:%d, delay: %lld\n", \
               bufptr - bufptr_write, wlen, delta);
       }
 */
@@ -228,7 +228,7 @@ void *tsdata_worker(void *d) {
       } else {
         if( errno != EAGAIN ) {
           data->status = DST_FAILED;
-          ERROR("stream write failed %d!=%d - %m\n", errno, EAGAIN);
+          ERROR(MSG_SRV, "stream write failed %d!=%d - %m\n", errno, EAGAIN);
         }
       }
       if (bufptr_write == bufptr) {
@@ -246,7 +246,7 @@ void *tsdata_worker(void *d) {
   }
 
 error:
-  INFO("TS data copy thread terminated.\n");
+  INFO(MSG_SRV, "TS data copy thread terminated.\n");
   data->status = DST_ENDED;
 }
 
@@ -259,7 +259,7 @@ int fetch_request(struct sockaddr_in *client_so, int *proto, int *tuner_type, in
 		if( ! init_vtuner_service()) return 0;
 	}
 
-	INFO("waiting for autodiscover packet (groups 0x%04X) ...\n", *tuner_group);
+	INFO(MSG_SRV, "waiting for autodiscover packet (groups 0x%04X) ...\n", *tuner_group);
 	do {
 		if( recvfrom(discover_fd, &msg, sizeof(msg), 0, (struct sockaddr *) client_so, &clientlen) <= 0 )
 			return 0;
@@ -269,7 +269,7 @@ int fetch_request(struct sockaddr_in *client_so, int *proto, int *tuner_type, in
 		*tuner_type = msg.u.discover.vtype;
 		if(msg.ver >= VTUNER_PROTO2 && *tuner_group != -1) {
 			if(((*tuner_group) & msg.u.discover.tuner_group) == 0) {
-				INFO("request for group 0x%04X, not accepting\n", msg.u.discover.tuner_group);
+				INFO(MSG_SRV, "request for group 0x%04X, not accepting\n", msg.u.discover.tuner_group);
 				continue;
 			}
 		}
@@ -298,18 +298,18 @@ int run_worker(int adapter, int fe, int demux, int dvr, struct sockaddr_in *clie
 	#endif
 
 	if( ! hw_init(&hw, adapter, fe, demux, dvr)) {
-		ERROR("hardware init failed\n");
+		ERROR(MSG_SRV, "hardware init failed\n");
 		goto cleanup_hw;
 	}
 
 	listen_fd = prepare_anon_stream_socket( &ctrl_so, &ctrllen);
 	if( listen_fd < 0) {
-		ERROR("control socket init failed\n");
+		ERROR(MSG_SRV, "control socket init failed\n");
 		goto cleanup_hw;
 	}
 
 	msg.u.discover.port = ntohs(ctrl_so.sin_port);
-	INFO("control socket bound to %d\n", msg.u.discover.port);
+	INFO(MSG_SRV, "control socket bound to %d\n", msg.u.discover.port);
 
 	tsdata_worker_data_t dwd;
 	dwd.in = hw.streaming_fd;
@@ -322,12 +322,12 @@ int run_worker(int adapter, int fe, int demux, int dvr, struct sockaddr_in *clie
 
 	msg.u.discover.tsdata_port = ntohs(data_so.sin_port);
 	msg.msg_type = MSG_DISCOVER;
-	INFO("session prepared control:%d data:%d\n", msg.u.discover.port, msg.u.discover.tsdata_port);
+	INFO(MSG_SRV, "session prepared control:%d data:%d\n", msg.u.discover.port, msg.u.discover.tsdata_port);
     hton_vtuner_net_message(&msg, 0);
     if(sendto(discover_fd, &msg, sizeof(msg), 0, (struct sockaddr *)client_so, sizeof(*client_so))>0)
     	DEBUGSRV("Answered discover request\n");
     else {
-    	ERROR("Failed to sent discover packet - %m\n");
+    	ERROR(MSG_SRV, "Failed to sent discover packet - %m\n");
     	goto cleanup_worker_thread;
     }
 
@@ -336,11 +336,11 @@ int run_worker(int adapter, int fe, int demux, int dvr, struct sockaddr_in *clie
     if(poll(afd,1,5000)) {
     	ctrl_fd = accept(listen_fd, (struct sockaddr *)&ctrl_so, &ctrllen);
     	if(ctrl_fd<0) {
-    		ERROR("accept failed on control socket - %m\n");
+    		ERROR(MSG_SRV, "accept failed on control socket - %m\n");
     		goto cleanup_worker_thread;
     	}
     } else {
-    	INFO("no client connected. timeout\n");
+    	INFO(MSG_SRV, "no client connected. timeout\n");
     	goto cleanup_worker_thread;
     }
 
@@ -352,7 +352,7 @@ int run_worker(int adapter, int fe, int demux, int dvr, struct sockaddr_in *clie
 	// client sends SET_FRONTEND with invalid data after a SET_PROPERTY
 	int skip_set_frontend = 0;
 
-	INFO("session running\n");
+	INFO(MSG_SRV, "session running\n");
 	while(dwd.status == DST_RUNNING) {
 		struct pollfd pfd[] = { { ctrl_fd, POLLIN, 0 } };
 		poll(pfd, 1, 750);
@@ -410,7 +410,7 @@ int run_worker(int adapter, int fe, int demux, int dvr, struct sockaddr_in *clie
 							break;
 						case MSG_ENABLE_HIGH_VOLTAGE:
 							//FIXME: need to know how information is passed to client
-							WARN("MSG_ENABLE_HIGH_VOLTAGE is not implemented: %d\n", msg.u.vtuner.body.pad[0]);
+							WARN(MSG_SRV, "MSG_ENABLE_HIGH_VOLTAGE is not implemented: %d\n", msg.u.vtuner.body.pad[0]);
 							break;
 						case MSG_SEND_DISEQC_MSG: {
 							ret=hw_send_diseq_msg(&hw, &msg.u.vtuner.body.diseqc_master_cmd);
@@ -438,14 +438,14 @@ int run_worker(int adapter, int fe, int demux, int dvr, struct sockaddr_in *clie
 							break;
 						default:
 							ret = 0;
-							WARN("unknown vtuner message %d\n", msg.u.vtuner.type);
+							WARN(MSG_SRV, "unknown vtuner message %d\n", msg.u.vtuner.type);
 							// don't stop here, instead send message
 							// back to avoid client hang
 					}
 
 					if (msg.u.vtuner.type != MSG_PIDLIST ) {
 						if( ret!= 0 )
-							WARN("vtuner call failed, type:%d reason:%d\n", msg.u.vtuner.type, ret);
+							WARN(MSG_SRV, "vtuner call failed, type:%d reason:%d\n", msg.u.vtuner.type, ret);
 						msg.u.vtuner.type = ret;
 						hton_vtuner_net_message(&msg, hw.type);
 						write(ctrl_fd, &msg, sizeof(msg));
@@ -457,7 +457,7 @@ int run_worker(int adapter, int fe, int demux, int dvr, struct sockaddr_in *clie
 							break;
 						default:
 							ret = 0;
-							WARN("received out-of-state control message: %d\n", msg.msg_type);
+							WARN(MSG_SRV, "received out-of-state control message: %d\n", msg.msg_type);
 							// don't stop here, instead send message
 							// back to avoid client hang
 					}
@@ -466,7 +466,7 @@ int run_worker(int adapter, int fe, int demux, int dvr, struct sockaddr_in *clie
 					write(ctrl_fd, &msg, sizeof(msg));
 				}
 			} else {
-				WARN("message size is invalid: %d\n", rlen);
+				WARN(MSG_SRV, "message size is invalid: %d\n", rlen);
 			}
 		}
 	}
@@ -492,7 +492,7 @@ int run_worker(int adapter, int fe, int demux, int dvr, struct sockaddr_in *clie
 		hw_free(&hw);
 
 	error:
-		INFO("control thread terminated.\n");
+		INFO(MSG_SRV, "control thread terminated.\n");
 
 	return ex;
 }
