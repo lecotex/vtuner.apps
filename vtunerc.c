@@ -362,6 +362,8 @@ int main(int argc, char **argv) {
   FILE *pidfile;
   char pidname[MAXPATHLEN], *piddir = "/var/run";
   int ctrl_idx = 0;
+  struct hostent *he;
+  struct in_addr **addr_list;
 
   mode = 0;
   modes = 0;
@@ -463,10 +465,16 @@ int main(int argc, char **argv) {
       if((c = sscanf(optarg, "%[^:]:%d", direct_ip, &discover_port)) < 1)
       //if(strchr(optarg, ':'))
       {
-         ERROR(MSG_MAIN, "Network parameter requires at least IP address (rv=%d)\n", c);
+         ERROR(MSG_MAIN, "Network parameter requires at least IP address or hostname (rv=%d)\n", c);
          exit(1);
       }
-      INFO(MSG_MAIN, "direct connection: ip='%s' port=%d\n", direct_ip, discover_port);
+      if((he = gethostbyname(direct_ip)) == NULL) {
+        ERROR(MSG_MAIN, "Failed to parse IP/hostname: %s\n", direct_ip);
+        exit(1);
+      }
+      addr_list = (struct in_addr **)he->h_addr_list;
+      strcpy(direct_ip, inet_ntoa(*addr_list[0]));
+      INFO(MSG_MAIN, "direct connection: host='%s' port=%d\n", direct_ip, discover_port);
       break;
 
     case 'x': // calc delay
@@ -491,7 +499,7 @@ int main(int argc, char **argv) {
 #endif
                       "  Optional:\n"
                       "    -d dev_name              : path to controlling device (usually /dev/vtunerc0)\n"
-                      "    -n direct_ip[:port]      : do direct request for tuner (multicast by default)\n"
+                      "    -n hostname[:port]       : do direct request for tuner (multicast by default)\n"
                       "    -r rbuf_size             : receive buffer size\n"
                       "    -x max_delay             : max delay or 0\n"
                       "    -v level                 : verbosity level (1:err,2:warn,3:info,4:debug)\n");
