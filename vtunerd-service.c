@@ -247,6 +247,7 @@ void *tsdata_worker(void *d) {
 
 error:
   INFO(MSG_SRV, "TS data copy thread terminated.\n");
+  close(out_fd);
   data->status = DST_ENDED;
 }
 
