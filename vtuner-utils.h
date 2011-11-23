@@ -5,6 +5,13 @@ extern int dbg_level;
 extern unsigned int dbg_mask; // MSG_MAIN | MSG_NET | MSG_HW
 extern int use_syslog;
 
+#ifndef DVB_API_VERSION
+#define DVB_API_VERSION		0
+#endif
+#ifndef DVB_API_VERSION_MINOR
+#define DVB_API_VERSION_MINOR	0
+#endif
+
 #define MSG_MAIN	1
 #define MSG_NET		2
 #define MSG_HW		4
