@@ -135,7 +135,12 @@ void print_frontend_parameters(vtuner_hw_t* hw, struct dvb_frontend_parameters* 
 int hw_get_frontend(vtuner_hw_t* hw, struct dvb_frontend_parameters* fe_params) {
   int ret;
   ret = ioctl(hw->frontend_fd, FE_GET_FRONTEND, fe_params);
-  if( ret != 0 ) WARN(MSG_NET, "FE_GET_FRONTEND failed - %m\n");
+  if( ret != 0 ) {
+    WARN(MSG_NET, "FE_GET_FRONTEND failed. It seems your DVB driver has incomplete implementation.\n");
+    // Follows workaround for crappy drivers which have not implemented .get_frontend() callback
+    memset(fe_params, 0, sizeof(struct dvb_frontend_parameters));
+    ret = 0;
+  }
   return ret;
 }
 
