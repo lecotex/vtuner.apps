@@ -3,9 +3,11 @@ LOCVER := $(shell hg id | tr ' ' / )
 MODFLAG := $(shell if `hg status | grep ^M | grep \.[ch]$$ > /dev/null` ; then echo /dirty ; fi )
 
 ../../dist/$(ARCH)/vtunerd.$(ARCH): ../../vtunerd.c vtunerd-service.o vtuner-network.o vtuner-utils.o $(DRIVER).o
+	@mkdir -p ../../dist/$(ARCH)
 	$(CC) $(CFLAGS) -DBUILDVER="\"$(LOCVER)\"" -DMODFLAG=\"$(MODFLAG)\" -o ../../dist/$(ARCH)/vtunerd.$(ARCH) vtuner-network.o vtunerd-service.o $(DRIVER).o vtuner-utils.o ../../vtunerd.c $(LDFLAGS)
 
 ../../dist/$(ARCH)/vtunerc.$(ARCH): ../../vtunerc.c vtuner-network.o vtuner-utils.o
+	@mkdir -p ../../dist/$(ARCH)
 	$(CC) $(CFLAGS) -DBUILDVER="\"$(LOCVER)\"" -DMODFLAG=\"$(MODFLAG)\" -o ../../dist/$(ARCH)/vtunerc.$(ARCH) vtuner-network.o vtuner-utils.o ../../vtunerc.c $(LDFLAGS)
 	
 vtunerd-service.o: ../../vtunerd-service.c ../../vtunerd-service.h

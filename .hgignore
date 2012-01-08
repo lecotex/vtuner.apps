@@ -9,6 +9,7 @@ CVS
 .gitignore
 .svnignore
 Make.config
+dist
 
 syntax: regexp
 .*\#.*\#$
