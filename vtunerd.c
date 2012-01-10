@@ -97,7 +97,20 @@ int main(int argc, char **argv) {
 
 			case 'l': // TODO: local ip
 			case 'p': // TODO: port
-			case 'u': // TODO: udp log
+				break;
+
+			case 'u': // udp log
+				{
+					char ip[64];
+					int pnum;
+
+					if(sscanf(optarg, "%[^:]:%d", ip, &pnum) < 2) {
+						WARN(MSG_MAIN, "Invalid UDP logger parameter: %s\n", optarg);
+						break;
+					}
+					open_udplog(ip, pnum);
+					DEBUGMAIN("UDP logger to %s:%d opened\n", ip, pnum);
+				}
 				break;
 
 
@@ -107,7 +120,7 @@ int main(int argc, char **argv) {
 					"    -g group_mask            : listen for group members requests only\n"
 					//"    -l ip_address            : listen on local ip address (default is on ALL)\n"
 					//"    -p port_number           : listen on local port (default is %d)\n"
-					//"    -u ip_address:port_number: send message log to udp://ip_address:port_number\n"
+					"    -u ip_address:port_number: send message log to udp://ip_address:port_number\n"
 					"    -v level                 : verbosity level (1:err,2:warn,3:info,4:debug)\n",
 					VTUNER_DISCOVER_PORT);
 				exit(1);
@@ -126,6 +139,8 @@ int main(int argc, char **argv) {
 	#if DVB_API_VERSION >= 5
 		INFO(MSG_MAIN, "S2API tuning support.\n");
 	#endif
+
+	udplog_enable(1);
 
 	for(i=0;i<hw_count;++i) {
 		vtuner_hw_t hw;
