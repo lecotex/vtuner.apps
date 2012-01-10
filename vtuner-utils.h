@@ -29,4 +29,6 @@ extern int use_syslog;
 #define DEBUG(mtype, msg, ...) write_message(mtype, MSG_DEBUG, "[%d %s:%u] debug: " msg, getpid(), __FILE__, __LINE__, ## __VA_ARGS__)
 
 void write_message(const unsigned int, const int, const char*, ...);
+int open_udplog(char *, int );
+void udplog_enable(int);
 #endif
