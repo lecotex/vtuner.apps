@@ -17,27 +17,44 @@
 #define str(s) #s
 
 static unsigned short discover_port = VTUNER_DISCOVER_PORT;
+static int discover_fd = 0;
 
-int discover_fd = 0;
+static unsigned short listen_port = VTUNER_DISCOVER_PORT;
+static unsigned long listen_ip = INADDR_ANY;
 
-int init_vtuner_service() {
+int init_vtuner_service(char *ip, unsigned short port) {
 	struct sockaddr_in discover_so;
+	int rv;
+
+	if( discover_fd ) {
+		DEBUGSRV("autodiscover socket already bound\n");
+		return 0;
+	}
+
+	if( ip && strlen(ip) ) {
+		unsigned long nip;
+  		inet_aton(ip, &nip);
+		if( nip )
+			listen_ip = ntohl(nip);
+	}
+	if( port )
+		listen_port = port;
 
 	memset(&discover_so, 0, sizeof(discover_so));
 	discover_so.sin_family = AF_INET;
-	discover_so.sin_addr.s_addr = htonl(INADDR_ANY);
-	discover_so.sin_port = htons(0x9989);
+	discover_so.sin_addr.s_addr = htonl(listen_ip);
+	discover_so.sin_port = htons(listen_port);
 	discover_fd = socket(PF_INET, SOCK_DGRAM, IPPROTO_UDP);
 
-	if( bind(discover_fd, (struct sockaddr *) &discover_so, sizeof(discover_so)) < 0) {
-		ERROR(MSG_SRV, "failed to bind autodiscover socket - %m\n");
-		return 0;
+	if(( rv = bind(discover_fd, (struct sockaddr *) &discover_so, sizeof(discover_so))) < 0) {
+		ERROR(MSG_SRV, "failed to bind autodiscover socket %s:%d - %m\n", ip ? : "*.*", listen_port);
+		return rv;
 	}
-	DEBUGSRV("autodiscover socket bound\n");
-	return 1;
+	DEBUGSRV("autodiscover socket bound to %s:%d\n", ip ? : "*.*", listen_port);
+	return 0;
 }
 
-int prepare_anon_stream_socket(struct sockaddr_in* addr, socklen_t* addrlen) {
+static int prepare_anon_stream_socket(struct sockaddr_in* addr, socklen_t* addrlen) {
 
   int listen_fd;
   int ret;
@@ -50,7 +67,7 @@ int prepare_anon_stream_socket(struct sockaddr_in* addr, socklen_t* addrlen) {
 
   memset((char *)addr, 0, *addrlen);
   addr->sin_family = AF_INET;
-  addr->sin_addr.s_addr = INADDR_ANY;
+  addr->sin_addr.s_addr = htonl(listen_ip);
   addr->sin_port = 0;
 
   if( ret = bind(listen_fd, (struct sockaddr*)addr, *addrlen) < 0) {
@@ -75,7 +92,7 @@ error:
   return(ret);
 }
 
-void set_socket_options(int fd) {
+static void set_socket_options(int fd) {
     int opt=1;
     if( setsockopt(fd, IPPROTO_TCP, TCP_NODELAY, &opt, sizeof(opt)) < 0)
       WARN(MSG_SRV, "setsockopt TCP_NODELAY %d failed -%m\n",opt);
@@ -123,7 +140,7 @@ typedef struct tsdata_worker_data {
 	tsdata_worker_status_t status;
 } tsdata_worker_data_t;
 
-void *tsdata_worker(void *d) {
+static void *tsdata_worker(void *d) {
   tsdata_worker_data_t* data = (tsdata_worker_data_t*)d;
 
   int out_fd;
@@ -255,10 +272,6 @@ int fetch_request(struct sockaddr_in *client_so, int *proto, int *tuner_type, in
 
 	int clientlen = sizeof(*client_so);
 	vtuner_net_message_t msg;
-
-	if(discover_fd==0) {
-		if( ! init_vtuner_service()) return 0;
-	}
 
 	INFO(MSG_SRV, "waiting for autodiscover packet (groups 0x%04X) ...\n", *tuner_group);
 	do {

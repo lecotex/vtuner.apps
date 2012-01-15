@@ -46,6 +46,8 @@ int main(int argc, char **argv) {
 	int hw_count = 0;
 	int tuner_group = VTUNER_GROUPS_ALL;
 	int opt_err = 0;
+	unsigned short lport = 0;
+	char *lip = NULL;
 
 	openlog("vtunerd", LOG_PERROR, LOG_USER);
 
@@ -95,8 +97,12 @@ int main(int argc, char **argv) {
 				sscanf(optarg, "%i", &tuner_group);
 				break;
 
-			case 'l': // TODO: local ip
-			case 'p': // TODO: port
+			case 'l': // listenning ip
+				lip = optarg;
+				break;
+
+			case 'p': // listenning port
+				lport = atoi(optarg);
 				break;
 
 			case 'u': // udp log
@@ -118,8 +124,8 @@ int main(int argc, char **argv) {
 				write_message(MSG_MAIN, MSG_ERROR, "\nCommand line options:\n"
 					"    -d devs_list             : adapter[:frontend[:demux[:dvr]]] (default is 0:0:0:0)\n"
 					"    -g group_mask            : listen for group members requests only\n"
-					//"    -l ip_address            : listen on local ip address (default is on ALL)\n"
-					//"    -p port_number           : listen on local port (default is %d)\n"
+					"    -l ip_address            : listen on local ip address (default is on ALL)\n"
+					"    -p port_number           : listen on local port (default is %d)\n"
 					"    -u ip_address:port_number: send message log to udp://ip_address:port_number\n"
 					"    -v level                 : verbosity level (1:err,2:warn,3:info,4:debug)\n",
 					VTUNER_DISCOVER_PORT);
@@ -161,6 +167,11 @@ int main(int argc, char **argv) {
 
 	struct sockaddr_in client_so;
 	int tuner_type, proto = -1;
+
+	if (init_vtuner_service(lip, lport)) {
+		ERROR(MSG_MAIN, "Failed to init listening port '%s:%d'\n", lip ? : "*.*", lport);
+		exit(2);
+	}
 
 	while(fetch_request(&client_so, &proto, &tuner_type, &tuner_group)) {
 		INFO(MSG_MAIN, "received discover request proto%d, vtuner_type:%d group:0x%04X\n", proto, tuner_type, tuner_group);

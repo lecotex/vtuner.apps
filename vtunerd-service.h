@@ -24,6 +24,7 @@ typedef enum vtuner_session_status {
 	SST_BUSY
 } vtuner_session_status_t;
 
+int init_vtuner_service(char *, unsigned short);
 int fetch_request(struct sockaddr_in*, int*, int*, int*);
 int run_worker(int, int, int, int, struct sockaddr_in*);
 
