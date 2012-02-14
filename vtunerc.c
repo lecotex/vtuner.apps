@@ -427,11 +427,11 @@ int main(int argc, char **argv) {
           types[modes] = VT_S;
           vtuner_info[modes] = &fe_info_dvbs;
           strncpy(ctypes[modes],"DVB-S",sizeof(ctypes[0]));
-        } else if(strcmp(act,"c")==0) {
+        } else if(strcmp(act,"C")==0) {
           types[modes] = VT_C;
           vtuner_info[modes] = &fe_info_dvbc;
           strncpy(ctypes[modes],"DVB-C",sizeof(ctypes[0]));
-        } else if(strcmp(act,"t")==0) {
+        } else if(strcmp(act,"T")==0) {
           types[modes] = VT_T;
           vtuner_info[modes] = &fe_info_dvbt;
           strncpy(ctypes[modes],"DVB-T",sizeof(ctypes[0]));
