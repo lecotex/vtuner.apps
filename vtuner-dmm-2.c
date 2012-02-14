@@ -146,13 +146,13 @@ int hw_set_frontend(vtuner_hw_t* hw, FrontendParameters* fe_params) {
 
 int hw_get_property(vtuner_hw_t* hw, struct dtv_property* prop) {
   int ret=-1;
-  WARN(MSG_HW, "FE_GET_PROPERTY is not available\n");
+  ERROR(MSG_HW, "FE_GET_PROPERTY is not available\n");
   return ret;
 }
 
 int hw_set_property(vtuner_hw_t* hw, struct dtv_property* prop) {
   int ret=-1;
-  WARN(MSG_HW, "FE_SET_PROPERTY is not available\n");
+  ERROR(MSG_HW, "FE_SET_PROPERTY is not available\n");
   return ret;
 }
 
