@@ -236,7 +236,7 @@ int hw_set_frontend(vtuner_hw_t* hw, struct dvb_frontend_parameters* fe_params) 
 }
 
 int hw_get_property(vtuner_hw_t* hw, struct dtv_property* prop) {
-  WARN(MSG_NET, "FE_GET_PROPERTY: not implemented %d\n", prop->cmd);
+  WARN(MSG_HW, "FE_GET_PROPERTY: not implemented %d\n", prop->cmd);
   return 0;
 }
 
@@ -244,7 +244,7 @@ int hw_set_property(vtuner_hw_t* hw, struct dtv_property* prop) {
   int ret=0;
 #if DVB_API_VERSION < 5
   ret = -1;
-  WARN(MSG_NET, "FE_SET_PROPERTY is not available\n");
+  WARN(MSG_HW, "FE_SET_PROPERTY is not available\n");
 #else
   DEBUGHW("FE_SET_PROPERTY %d\n", prop->cmd);
   switch( prop->cmd ) {
